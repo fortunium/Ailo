@@ -140,6 +140,7 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .badge-missing { font-size: 11px; color: var(--muted); font-style: italic; }
 .status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; flex: none; }
 .status-icon { font-size: 10px; width: 12px; text-align: center; }
+.sidebar .status-icon { font-size: 12px; width: 14px; line-height: 14px; }
 .st-idle { color: var(--muted); }
 .st-idle .status-icon { color: var(--ok); }
 .st-running { color: var(--accent); }
