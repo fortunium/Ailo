@@ -26,6 +26,9 @@ npm run dev
 AI-account toe via **Accounts** en meld je zelf aan. Er is geen `.env`-bestand of
 API-sleutel nodig om de app te openen. Ailo levert geen abonnement of tegoed mee.
 Installeer een ontbrekende provider-CLI zoals hierboven aangegeven en herstart Ailo.
+`npm ci` haalt ook de Electron-runtime op; daarvoor is internet nodig. De
+startcommando's controleren deze installatie opnieuw en gebruiken de lokale kopie
+zodra die beschikbaar is.
 
 Voor normaal lokaal gebruik met een productiebuild:
 

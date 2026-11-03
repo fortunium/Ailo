@@ -7,10 +7,11 @@
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "postinstall": "install-electron",
+    "dev": "install-electron && electron-vite dev",
     "build": "electron-vite build",
     "start": "npm run release",
-    "release": "npm run build && electron-vite preview",
+    "release": "install-electron && npm run build && electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "proof": "node scripts/isolation-proof.mjs",
