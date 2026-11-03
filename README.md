@@ -54,7 +54,7 @@ voor automations met een eigen worktree. MCP-servers kunnen extra runtimes verei
 
 De packagingconfiguratie is voorbereid. Voorlopig ontwikkelen en gebruiken we
 Ailo via `npm run dev`; de Linux-pakketten zijn nog niet gevalideerd.
-De GitHub-release **v0.1.0** bevat de broncode. Start deze met de commando's hierboven.
+De GitHub-release **v0.2.0** bevat de broncode. Start deze met de commando's hierboven.
 
 De pakketten bevatten Electron en de productiecode. Gebruikers installeren hun
 eigen Codex/Claude CLI en melden zich zelf aan. Accountmappen, gesprekken,
@@ -70,8 +70,8 @@ npm run dist:linux  # op Linux: AppImage en tar.gz in dist/
 Op Windows kun je de Linux-pakketten via Docker Desktop bouwen:
 
 ```powershell
-docker build -f build/Dockerfile.linux -t ailo-packager:0.1.0 .
-docker create --name ailo-package-export ailo-packager:0.1.0
+docker build -f build/Dockerfile.linux -t ailo-packager:0.2.0 .
+docker create --name ailo-package-export ailo-packager:0.2.0
 docker cp ailo-package-export:/project/dist/. ./dist/
 docker rm ailo-package-export
 node scripts/checksums.mjs
