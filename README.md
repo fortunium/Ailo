@@ -54,7 +54,7 @@ voor automations met een eigen worktree. MCP-servers kunnen extra runtimes verei
 
 De packagingconfiguratie is voorbereid. Voorlopig ontwikkelen en gebruiken we
 Ailo via `npm run dev`; de Linux-pakketten zijn nog niet gevalideerd.
-De GitHub-release **v0.1.0** bevat de broncode. Start deze met de commando's hierboven.
+De GitHub-release **v0.2.0** bevat de broncode. Start deze met de commando's hierboven.
 
 De pakketten bevatten Electron en de productiecode. Gebruikers installeren hun
 eigen Codex/Claude CLI en melden zich zelf aan. Accountmappen, gesprekken,
@@ -70,8 +70,8 @@ npm run dist:linux  # op Linux: AppImage en tar.gz in dist/
 Op Windows kun je de Linux-pakketten via Docker Desktop bouwen:
 
 ```powershell
-docker build -f build/Dockerfile.linux -t ailo-packager:0.1.0 .
-docker create --name ailo-package-export ailo-packager:0.1.0
+docker build -f build/Dockerfile.linux -t ailo-packager:0.2.0 .
+docker create --name ailo-package-export ailo-packager:0.2.0
 docker cp ailo-package-export:/project/dist/. ./dist/
 docker rm ailo-package-export
 node scripts/checksums.mjs
@@ -102,6 +102,46 @@ De eerste testpakketten zijn niet ondertekend en updates zijn handmatig.
 | F2 | Gesprek hernoemen |
 | Alt+↑ / Alt+↓ | Vorig / volgend gesprek |
 
+## Meldingen en ongelezen antwoorden
+
+Wanneer een taak klaar is terwijl je een ander gesprek bekijkt of Ailo op de
+achtergrond staat, verschijnt een desktopmelding. Aanklikken brengt Ailo naar
+voren en opent het betreffende gesprek. Bij een mislukte taak toont de melding
+dat er een fout is. Gestopte taken geven geen klaar-melding. Via de belknop
+onderaan de zijbalk zet je meldingen aan of uit; de keuze blijft bewaard.
+
+Een ongelezen antwoord krijgt **New** en een vetgedrukte gesprekstitel. Bij een
+ingeklapt project blijft een teller zichtbaar. Ongelezen antwoorden blijven na
+een herstart gemarkeerd totdat je het gesprek in het actieve Ailo-venster opent.
+Deze markering staat los van de status (bezig, klaar of fout) en werkt ook met
+desktopmeldingen uitgeschakeld.
+
+Desktopmeldingen vereisen dat je besturingssysteem ze toestaat. Voor Windows in
+ontwikkelmodus maakt Ailo een eigen **Ailo (development)**-snelkoppeling in het
+Startmenu om meldingen via `npm run dev` mogelijk te maken. Op Linux is een
+desktopomgeving met een meldingsdienst nodig. De zijbalk blijft bruikbaar als
+het systeem een melding niet kan tonen. De app moet geopend blijven om taken
+uit te voeren en meldingen te versturen.
+
+Het appicoon staat in `build/`; zie [build/README.md](build/README.md) voor de
+bron en het opnieuw genereren van de verschillende formaten.
+
+## Toestemmingen
+
+Naast de modelinstellingen staat **Permissions: Ask / Always allow**. De keuze
+geldt voor alle gesprekken en blijft na een herstart bewaard. **Ask** is de
+standaard. Met **Always allow** keurt Ailo toolverzoeken automatisch goed,
+waaronder commando's, bestandswijzigingen en extra toegang die de provider vraagt.
+Ook openstaande toestemmingsverzoeken in lopende taken worden goedgekeurd zodra
+je dit inschakelt. Je kunt tijdens een taak terugschakelen naar **Ask** voor
+volgende verzoeken. Eerder handmatig verleende sessietoestemmingen kunnen bij de
+provider blijven gelden tot de sessie eindigt.
+
+Inhoudelijke vragen blijven op jouw antwoord wachten. Rapportages in de aparte
+alleen-lezenmodus blijven alleen lezen en zoeken toestaan; daar toont de keuze
+**Read only**. Provider- en MCP-beperkingen blijven gelden. Automatisch
+goedgekeurde acties worden in het technische log vermeld.
+
 ## Terminal, bijlagen en losse gesprekken
 
 Ailo gebruikt uitsluitend de terminalweergave. De invoer ondersteunt meerdere regels, lange plaktekst (inklapbaar zonder tekst te verliezen), geplakte afbeeldingen en gesleepte of gekozen bestanden. Niet-verstuurde tekst en bijlagen blijven bewaard bij het wisselen tussen gesprekken zolang de app open is. Maximaal 10 bijlagen per bericht, 20 MB per bestand en 5 MB per afbeelding (PNG, JPEG, GIF of WebP). Afbeeldingen gaan als beeldinvoer naar het model; andere bestanden worden als lokale kopie beschikbaar gemaakt.
@@ -111,6 +151,15 @@ Ailo gebruikt uitsluitend de terminalweergave. De invoer ondersteunt meerdere re
 **Delete** verwijdert een gesprek met zijn transcript en bijlagen. Stop een lopend gesprek eerst. Werkbestanden blijven staan, ook in de automatisch gemaakte losse werkmap. Voor Codex verwijdert Ailo ook de providersessie wanneer de CLI dat ondersteunt; bij Claude blijft de eigen CLI-geschiedenis staan. Een melding geeft aan wanneer alleen de Ailo-kopie is verwijderd.
 
 ## Gebruik en modelinstellingen
+
+Eigen berichten hebben in beide thema's een aparte achtergrond, accentstrook en
+**You**-label, zodat de vraag duidelijk losstaat van het antwoord.
+
+Lokale bestandslinks in antwoorden openen een voorbeeld in Ailo. Tekst en code
+uit de werkmappen of bijlagen van het gesprek worden alleen gelezen; scripts
+worden niet uitgevoerd. **Show in folder** toont het bestand in de bestandsbeheerder.
+Voor grote of binaire bestanden is de mapactie beschikbaar. Ontbrekende bestanden
+en paden buiten de gespreksmappen geven een melding. Weblinks openen in de browser.
 
 Tijdens een beurt toont een activiteitenbalk de actieve commando's, tools en
 bestandswijzigingen. Codex-commandoutput en beschikbare voortgangsberichten

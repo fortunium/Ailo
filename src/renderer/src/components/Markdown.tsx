@@ -1,8 +1,12 @@
-import { memo } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { createContext, memo, useContext, useRef, useState } from 'react';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { api } from '../api';
 import { CodeBlock, CodeSyntax, languageForPath } from './CodeBlock';
+import { Dialog } from './ui';
+import { isLocalFileLink, type LocalFilePreview } from '../../../shared/file-links';
+
+export const ConversationLinkContext = createContext<string | undefined>(undefined);
 
 export function DiffText({ diff, lang }: { diff: string; lang?: string }) {
   return (
@@ -35,17 +39,42 @@ export function FileChangeCode({ path, change, diff }: { path: string; change: s
 }
 
 export const Markdown = memo(function Markdown({ text }: { text: string }) {
+  const conversationId = useContext(ConversationLinkContext);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState<LocalFilePreview>();
+  const [error, setError] = useState<string>();
+  const request = useRef(0);
+  const close = () => { request.current++; setOpen(false); };
+  async function follow(href: string) {
+    if (/^https?:/i.test(href)) {
+      try { await api.openExternal(href); } catch (e) { setError((e as Error).message); setOpen(true); }
+      return;
+    }
+    const current = ++request.current;
+    setOpen(true); setLoading(true); setPreview(undefined); setError(undefined);
+    try {
+      if (!isLocalFileLink(href)) throw new Error('This link type is not supported.');
+      if (!conversationId) throw new Error('Open this file from its conversation.');
+      if (!api.previewConversationFile) throw new Error('Restart Ailo to enable local file previews.');
+      const file = await api.previewConversationFile(conversationId, href);
+      if (request.current === current) setPreview(file);
+    } catch (e) { if (request.current === current) setError((e as Error).message); }
+    finally { if (request.current === current) setLoading(false); }
+  }
   return (
+    <>
     <div className="md">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={(url, key) => key === 'href' && isLocalFileLink(url) ? url : defaultUrlTransform(url)}
         components={{
           a: ({ href, children }) => (
             <a
               href={href}
               onClick={(e) => {
                 e.preventDefault();
-                if (href) void api.openExternal(href);
+                void follow(href ?? '');
               }}
             >
               {children}
@@ -64,5 +93,19 @@ export const Markdown = memo(function Markdown({ text }: { text: string }) {
         {text}
       </ReactMarkdown>
     </div>
+      <Dialog open={open} onClose={close} title={preview?.name ?? 'File preview'} wide>
+        {loading && <p>Loading file…</p>}
+        {error && <p className="file-preview-error" role="alert">{error}</p>}
+        {preview && <>
+          <p className="file-preview-path">{preview.path}</p>
+          <button className="btn" onClick={() => {
+            if (!api.showConversationFile) { setError('Restart Ailo to enable opening file locations.'); return; }
+            void api.showConversationFile(conversationId!, preview.path).catch((e) => setError(e.message));
+          }}>Show in folder</button>
+          {preview.message && <p>{preview.message}</p>}
+          {preview.text !== undefined && <CodeBlock code={preview.text} lang={languageForPath(preview.path)}/>}
+        </>}
+      </Dialog>
+    </>
   );
 });

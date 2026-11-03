@@ -22,6 +22,7 @@ const api: AiloApi = {
   stopAutomationRun: call('stopAutomationRun') as AiloApi['stopAutomationRun'],
   removeAutomationRun: call('removeAutomationRun') as AiloApi['removeAutomationRun'],
   getState: call('getState') as AiloApi['getState'],
+  setViewedConversation: call('setViewedConversation') as AiloApi['setViewedConversation'],
   detectClis: call('detectClis') as AiloApi['detectClis'],
   addAccount: call('addAccount') as AiloApi['addAccount'],
   updateAccount: call('updateAccount') as AiloApi['updateAccount'],
@@ -54,6 +55,8 @@ const api: AiloApi = {
   setSettings: call('setSettings') as AiloApi['setSettings'],
   openExternal: call('openExternal') as AiloApi['openExternal'],
   openConversationFolder: call('openConversationFolder') as AiloApi['openConversationFolder'],
+  previewConversationFile: call('previewConversationFile') as AiloApi['previewConversationFile'],
+  showConversationFile: call('showConversationFile') as AiloApi['showConversationFile'],
   onEvent(cb) {
     const listener = (_e: unknown, ev: MainEvent) => cb(ev);
     ipcRenderer.on('ailo:event', listener);

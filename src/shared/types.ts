@@ -86,6 +86,8 @@ export interface Conversation {
   createdAt: string;
   updatedAt: string;
   lastError?: string;
+  /** A finished turn that has not been viewed in the focused conversation. */
+  unread?: boolean;
   toolSnapshot?: ToolSnapshot;
   executionMode?: ExecutionMode;
   automationRunId?: string;
@@ -178,6 +180,9 @@ export interface CliInfo {
 export interface Settings {
   theme: 'system' | 'light' | 'dark';
   onboardingDone: boolean;
+  /** Persistent tool approval preference for all conversations. Missing = ask. */
+  approvalMode?: 'ask' | 'always';
+  notifications?: boolean;
 }
 
 export interface AppState {
@@ -269,6 +274,8 @@ export type LoginProgress =
   | { stage: 'failed'; message: string };
 
 export type MainEvent =
+  | { type: 'turn_finished'; conversationId: string; outcome: 'completed' | 'failed' }
+  | { type: 'open_conversation'; conversationId: string }
   | { type: 'state'; state: AppState }
   | { type: 'transcript'; conversationId: string; items: ChatItem[] }
   | { type: 'item'; conversationId: string; item: ChatItem }
@@ -310,6 +317,7 @@ export interface AiloApi {
   stopAutomationRun(id: string): Promise<void>;
   removeAutomationRun(id: string): Promise<void>;
   getState(): Promise<AppState>;
+  setViewedConversation(id: string | null): Promise<void>;
   detectClis(): Promise<CliInfo[]>;
   addAccount(input: { provider: ProviderId; alias: string; color: string; icon?: string }): Promise<Account>;
   updateAccount(id: string, patch: Partial<Pick<Account, 'alias' | 'color' | 'icon'>>): Promise<void>;
@@ -344,5 +352,7 @@ export interface AiloApi {
   setSettings(patch: Partial<Settings>): Promise<void>;
   openExternal(url: string): Promise<void>;
   openConversationFolder(id: string): Promise<void>;
+  previewConversationFile(id: string, target: string): Promise<import('./file-links').LocalFilePreview>;
+  showConversationFile(id: string, target: string): Promise<void>;
   onEvent(cb: (e: MainEvent) => void): () => void;
 }

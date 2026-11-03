@@ -1,7 +1,7 @@
 {
   "name": "ailo",
   "productName": "Ailo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Eén rustige werkplek voor meerdere AI-codeassistenten en accounts.",
   "private": true,
   "type": "module",
@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "proof": "node scripts/isolation-proof.mjs",
+    "icons": "node scripts/icons.mjs",
     "pack": "npm run build && electron-builder --dir --publish never",
     "dist:win": "npm run build && electron-builder --win --x64 --publish never && node scripts/checksums.mjs",
     "dist:linux": "npm run build && electron-builder --linux --x64 --publish never && node scripts/checksums.mjs"
@@ -44,5 +45,7 @@
     "vitest": "^5.1.0"
   },
   "author": "Cerebellum90",
-  "engines": { "node": ">=24.0.0" }
+  "engines": {
+    "node": ">=24.0.0"
+  }
 }

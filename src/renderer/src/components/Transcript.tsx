@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ApprovalDecision, ChatItem } from '../../../shared/types';
 import { commandOutputNotice } from '../../../shared/command-diagnostics';
 import { api } from '../api';
-import { DiffText, FileChangeCode, Markdown } from './Markdown';
+import { ConversationLinkContext, DiffText, FileChangeCode, Markdown } from './Markdown';
 
 type Step = Extract<ChatItem, { kind: 'tool' } | { kind: 'reasoning' }>;
 type Block = { type: 'steps'; id: string; steps: Step[] } | { type: 'item'; item: ChatItem };
@@ -242,7 +242,7 @@ function Notice({ item }: { item: Extract<ChatItem, { kind: 'notice' }> }) {
 export function Transcript({ conversationId, items, live }: { conversationId: string; items: ChatItem[]; live: boolean }) {
   const blocks = group(items);
   return (
-    <>
+    <ConversationLinkContext.Provider value={conversationId}>
       {blocks.map((b, i) => {
         if (b.type === 'steps') return <Steps key={b.id} steps={b.steps} live={live && i === blocks.length - 1} />;
         const it = b.item;
@@ -272,7 +272,7 @@ export function Transcript({ conversationId, items, live }: { conversationId: st
             return null;
         }
       })}
-    </>
+    </ConversationLinkContext.Provider>
   );
 }
 
@@ -298,6 +298,7 @@ function TermLine({ conversationId, item }: { conversationId: string; item: Chat
     case 'user':
       return (
         <div className="t-user">
+          <div className="t-user-label">You</div>
           <span className="t-prompt" aria-hidden="true">
             ❯{' '}
           </span>
@@ -410,10 +411,12 @@ function TermActions({ conversationId, steps, live }: { conversationId: string; 
 
 export function TerminalTranscript({ conversationId, items, live = false }: { conversationId: string; items: ChatItem[]; live?: boolean }) {
   return (
+    <ConversationLinkContext.Provider value={conversationId}>
     <div className="term-log">
       {group(items).map((block) => block.type === 'steps'
         ? <TermActions key={block.id} conversationId={conversationId} steps={block.steps} live={live}/>
         : <TermLine key={block.item.id} conversationId={conversationId} item={block.item}/>) }
     </div>
+    </ConversationLinkContext.Provider>
   );
 }

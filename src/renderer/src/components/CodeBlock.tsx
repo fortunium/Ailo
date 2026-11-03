@@ -10,7 +10,7 @@ export function languageForPath(file: string): string | undefined {
     js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript',
     ts: 'typescript', tsx: 'typescript', json: 'json', html: 'html', htm: 'html',
     xml: 'xml', svg: 'xml', css: 'css', scss: 'scss', less: 'less',
-    py: 'python', sh: 'bash', bash: 'bash', sql: 'sql', yaml: 'yaml', yml: 'yaml',
+    py: 'python', sh: 'bash', bash: 'bash', ps1: 'powershell', sql: 'sql', yaml: 'yaml', yml: 'yaml',
     toml: 'ini', ini: 'ini', md: 'markdown', cs: 'csharp', c: 'c', h: 'c',
     cpp: 'cpp', hpp: 'cpp', java: 'java', go: 'go', rs: 'rust', rb: 'ruby', php: 'php'
   };

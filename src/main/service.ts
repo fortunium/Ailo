@@ -64,6 +64,7 @@ interface ActiveRun {
 }
 
 export class AiloService {
+  private viewedConversationId: string | null = null;
   readonly automations: AutomationManager;
   private runs = new Map<string, ActiveRun>();
   private logins = new Map<string, LoginHandle>();
@@ -469,11 +470,23 @@ export class AiloService {
   }
 
   private setStatus(c: Conversation, status: Conversation['status'], lastError?: string): void {
+    const finished = ['running', 'awaiting_input'].includes(c.status) && (status === 'idle' || status === 'error');
     c.status = status;
     c.lastError = lastError;
     c.updatedAt = now();
+    if (finished) c.unread = this.viewedConversationId !== c.id;
     this.automations.conversationChanged(c);
     this.publish();
+    if (finished) this.emit({ type: 'turn_finished', conversationId: c.id, outcome: status === 'idle' ? 'completed' : 'failed' });
+  }
+
+  setViewedConversation(id: string | null): void {
+    const c = id ? this.conversation(id) : undefined;
+    this.viewedConversationId = c?.id ?? null;
+    if (c?.unread) {
+      c.unread = false;
+      this.publish();
+    }
   }
 
   async sendMessage(conversationId: string, text: string, opts: { acknowledgeConflicts?: boolean; wait?: boolean; attachments?: Attachment[] } = {}): Promise<StartTurnResult> {
@@ -596,7 +609,16 @@ export class AiloService {
             if (this.store.appendDelta(c.id, itemId, delta)) this.emit({ type: 'delta', conversationId: c.id, itemId, text: delta });
           },
           onLog: log,
-          requestApproval: (request: ApprovalRequest, signal) => c.executionMode === 'report' ? Promise.resolve('deny') : prompt<ApprovalDecision | 'cancelled'>({ kind: 'approval', id: randomUUID(), request: sanitize(request), at: now() }, signal),
+          requestApproval: (request: ApprovalRequest, signal) => {
+            if (run.stopping || signal?.aborted) return Promise.resolve('cancelled');
+            if (c.executionMode === 'report') return Promise.resolve('deny');
+            if (this.state.settings.approvalMode === 'always') {
+              log(`Automatically approved: ${sanitize(request.title)}`);
+              // Approve once so switching back to Ask takes effect on the next request.
+              return Promise.resolve('approve');
+            }
+            return prompt<ApprovalDecision | 'cancelled'>({ kind: 'approval', id: randomUUID(), request: sanitize(request), at: now() }, signal);
+          },
           requestAnswers: (questions: Question[], signal) => prompt<Record<string, string> | null>({ kind: 'question', id: randomUUID(), questions: sanitize(questions), at: now() }, signal)
         }
       });
@@ -688,8 +710,18 @@ export class AiloService {
   }
 
   setSettings(patch: Partial<Settings>): void {
+    if (patch.approvalMode !== undefined && !['ask', 'always'].includes(patch.approvalMode)) throw new Error('Invalid approval mode.');
     Object.assign(this.state.settings, patch);
     this.publish();
+    if (patch.approvalMode === 'always') {
+      for (const [id, run] of this.runs) {
+        if (run.stopping || this.conversation(id).executionMode === 'report') continue;
+        for (const itemId of [...run.prompts.keys()]) {
+          const item = this.store.transcript(id).items.find((i) => i.id === itemId);
+          if (item?.kind === 'approval') this.resolvePrompt(id, itemId, 'approve');
+        }
+      }
+    }
   }
 
   async dispose(): Promise<void> {

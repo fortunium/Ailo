@@ -58,7 +58,7 @@ export function AccountBadge({ account, size = 'sm', showProvider = false }: { a
 
 const STATUS: Record<ConversationStatus, { label: string; cls: string; icon: string }> = {
   idle: { label: 'Ready', cls: 'st-idle', icon: '●' },
-  running: { label: 'Working', cls: 'st-running', icon: '◐' },
+  running: { label: 'Working', cls: 'st-running', icon: '●' },
   awaiting_input: { label: 'Needs you', cls: 'st-await', icon: '◆' },
   error: { label: 'Error', cls: 'st-error', icon: '▲' },
   interrupted: { label: 'Stopped', cls: 'st-stopped', icon: '■' }
@@ -69,7 +69,7 @@ export function StatusDot({ status, withLabel = false }: { status: ConversationS
   return (
     <span className={`status ${s.cls}`} role="status" aria-label={s.label} title={s.label}>
       <span aria-hidden="true" className="status-icon">
-        {s.icon}
+        {status === 'running' ? <><span className="busy-dot"/><span className="busy-dot"/><span className="busy-dot"/></> : s.icon}
       </span>
       {withLabel && <span className="status-label">{s.label}</span>}
     </span>

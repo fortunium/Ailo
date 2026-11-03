@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.0 - 2026-11-03
+
+- Nieuw Ailo-appicoon voor het venster, de zijbalk, meldingen en pakketbestanden.
+- Desktopmeldingen bij afgeronde of mislukte achtergrondtaken; aanklikken opent
+  het juiste gesprek. Meldingen zijn via de belknop aan of uit te zetten.
+- Ongelezen antwoorden met **New**, vetgedrukte titels en projecttellers.
+  De markering blijft na een herstart bewaard tot je het gesprek bekijkt.
+- Blijvende keuze **Permissions: Ask / Always allow** voor beide providers,
+  inclusief lopende toestemmingsverzoeken. Inhoudelijke vragen blijven zichtbaar
+  en de alleen-lezenmodus voor rapportages blijft behouden.
+- Lokale bestandslinks openen een code- of tekstvoorbeeld met **Show in folder**.
+  Ontbrekende bestanden geven een melding; toegang blijft binnen de gespreksmappen.
+- Duidelijker onderscheid tussen prompts en antwoorden in licht en donker.
+- Grotere statusicoontjes in de zijbalk (16 px) en drie rustig oplichtende stipjes
+  tijdens het werken.
+
+Breng deze versie na `npm ci` lokaal aan het werk met `npm run dev` of
+`npm run release`. Bestaande gebruikers herstarten Ailo zodra hun lopende taak
+klaar is, zodat ook de wijzigingen in het hoofdproces actief worden.
+
+Dit is een broncoderelease; desktopinstallers zijn nog niet uitgebracht.
+
 ## 0.1.0 - 2026-11-03
 
 Eerste broncoderelease van Ailo. Start na `npm ci` met `npm run dev` of

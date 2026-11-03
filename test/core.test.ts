@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -111,6 +111,125 @@ function setup(conn: AccountConnection = { state: 'connected', email: 'a@x', che
 }
 
 describe('AiloService', () => {
+  it.each(['codex', 'claude'] as const)('persists unread completions for %s and clears them only when viewed', async (provider) => {
+    const { svc, runs, store, events, codex, claude } = setup();
+    const a = svc.addAccount({ provider, alias: 'Unread fixture', color: '#000' });
+    const c = svc.createConversation({ accountId: a.id });
+    const other = svc.createConversation({ accountId: a.id });
+    try {
+      svc.setViewedConversation(other.id);
+      await svc.sendMessage(c.id, 'First turn');
+      await vi.waitFor(() => expect(runs).toHaveLength(1));
+      (provider === 'codex' ? codex : claude).finish();
+      await vi.waitFor(() => expect(c.status).toBe('idle'));
+      expect(c.unread).toBe(true);
+      expect(new Store(store.root).state.conversations.find(x => x.id === c.id)?.unread).toBe(true);
+      expect(events.filter(e => e.type === 'turn_finished')).toEqual([{ type: 'turn_finished', conversationId: c.id, outcome: 'completed' }]);
+      const updatedAt = c.updatedAt;
+      svc.setViewedConversation(c.id);
+      expect(c.unread).toBe(false);
+      expect(c.updatedAt).toBe(updatedAt);
+      expect(new Store(store.root).state.conversations.find(x => x.id === c.id)?.unread).toBe(false);
+      await svc.sendMessage(c.id, 'Second turn');
+      await vi.waitFor(() => expect(runs).toHaveLength(2));
+      (provider === 'codex' ? codex : claude).finish();
+      await vi.waitFor(() => expect(c.status).toBe('idle'));
+      expect(c.unread).toBe(false); // Already looking at this conversation.
+      await svc.sendMessage(c.id, 'Third turn');
+      await vi.waitFor(() => expect(runs).toHaveLength(3));
+      svc.setViewedConversation(null); // Window lost focus or another page opened.
+      (provider === 'codex' ? codex : claude).finish();
+      await vi.waitFor(() => expect(c.status).toBe('idle'));
+      expect(c.unread).toBe(true);
+    } finally { await svc.dispose(); }
+  });
+
+  it('marks a failed background task unread, but does not announce a stopped task as complete', async () => {
+    const { svc, events, codex } = setup();
+    const a = svc.addAccount({ provider: 'codex', alias: 'Failure fixture', color: '#000' });
+    const c = svc.createConversation({ accountId: a.id });
+    try {
+      codex.adapter.runTurn = async () => ({ done: Promise.resolve({ status: 'failed', message: 'Fixture failure' }), stop: async () => {} });
+      await svc.sendMessage(c.id, 'Fail', { wait: true });
+      expect(c.unread).toBe(true);
+      expect(events.filter(e => e.type === 'turn_finished')).toEqual([{ type: 'turn_finished', conversationId: c.id, outcome: 'failed' }]);
+      svc.setViewedConversation(c.id); svc.setViewedConversation(null);
+      codex.adapter.runTurn = async () => ({ done: Promise.resolve({ status: 'interrupted' }), stop: async () => {} });
+      await svc.sendMessage(c.id, 'Stop', { wait: true });
+      expect(c.unread).toBe(false);
+      expect(events.filter(e => e.type === 'turn_finished')).toHaveLength(1);
+    } finally { await svc.dispose(); }
+  });
+
+  it.each(['codex', 'claude'] as const)('persists automatic approvals for %s and can switch back to asking during a run', async (provider) => {
+    const { svc, runs, store } = setup();
+    const a = svc.addAccount({ provider, alias: 'Fixture', color: '#000' });
+    const c = svc.createConversation({ accountId: a.id });
+    try {
+      expect(svc.state.settings.approvalMode).toBe('ask');
+      svc.setSettings({ approvalMode: 'always' });
+      expect(new Store(store.root).state.settings.approvalMode).toBe('always');
+      await svc.sendMessage(c.id, 'Inspect the fixture');
+      await vi.waitFor(() => expect(runs).toHaveLength(1));
+      const cb = runs[0].cb;
+      expect(await cb.requestApproval({ title: 'Command', allowSession: true })).toBe('approve');
+      expect(await cb.requestApproval({ title: 'Change a file', allowSession: false, defaultToNo: true })).toBe('approve');
+      expect(store.transcript(c.id).items.some(i => i.kind === 'approval')).toBe(false);
+      expect(store.transcript(c.id).log.some(l => l.includes('Automatically approved: Command'))).toBe(true);
+      svc.setSettings({ approvalMode: 'ask' });
+      const decision = cb.requestApproval({ title: 'Ask again', allowSession: true });
+      const approval = store.transcript(c.id).items.findLast(i => i.kind === 'approval')!;
+      expect(c.status).toBe('awaiting_input');
+      svc.respondApproval(c.id, approval.id, 'deny');
+      expect(await decision).toBe('deny');
+      expect(c.status).toBe('running');
+      const abort = new AbortController(); abort.abort();
+      svc.setSettings({ approvalMode: 'always' });
+      expect(await cb.requestApproval({ title: 'Aborted', allowSession: false }, abort.signal)).toBe('cancelled');
+      await svc.stop(c.id);
+      expect(await cb.requestApproval({ title: 'Stopped', allowSession: false })).toBe('cancelled');
+    } finally { await svc.dispose(); }
+  });
+
+  it('approves pending permissions across conversations when enabled, but keeps questions pending', async () => {
+    const { svc, runs, store } = setup();
+    const a = svc.addAccount({ provider: 'codex', alias: 'Fixture A', color: '#000' });
+    const b = svc.addAccount({ provider: 'claude', alias: 'Fixture B', color: '#000' });
+    const c = svc.createConversation({ accountId: a.id });
+    const d = svc.createConversation({ accountId: b.id });
+    try {
+      await svc.sendMessage(c.id, 'First fixture');
+      await svc.sendMessage(d.id, 'Second fixture');
+      await vi.waitFor(() => expect(runs).toHaveLength(2));
+      const first = runs[0].cb.requestApproval({ title: 'First command', allowSession: true });
+      const second = runs[1].cb.requestApproval({ title: 'Second command', allowSession: false });
+      const answer = runs[0].cb.requestAnswers([{ id: 'choice', question: 'Which file?', options: [] }]);
+      svc.setSettings({ approvalMode: 'always' });
+      expect(await first).toBe('approve'); expect(await second).toBe('approve');
+      expect(c.status).toBe('awaiting_input'); expect(d.status).toBe('running');
+      const items = store.transcript(c.id).items;
+      expect(items.find(i => i.kind === 'approval')).toMatchObject({ resolution: 'approved' });
+      const question = items.find(i => i.kind === 'question')!;
+      expect(question).not.toHaveProperty('resolution');
+      svc.respondQuestion(c.id, question.id, { choice: 'example.ts' });
+      expect(await answer).toEqual({ choice: 'example.ts' });
+    } finally { await svc.dispose(); }
+  });
+
+  it('keeps report mode read only with automatic approvals and rejects invalid settings', async () => {
+    const { svc, runs } = setup();
+    const a = svc.addAccount({ provider: 'codex', alias: 'Report fixture', color: '#000' });
+    const c = svc.createConversation({ accountId: a.id }); c.executionMode = 'report';
+    try {
+      expect(() => svc.setSettings({ approvalMode: 'invalid' as any })).toThrow('Invalid approval mode');
+      expect(svc.state.settings.approvalMode).toBe('ask');
+      svc.setSettings({ approvalMode: 'always' });
+      await svc.sendMessage(c.id, 'Read the fixture');
+      await vi.waitFor(() => expect(runs).toHaveLength(1));
+      expect(await runs[0].cb.requestApproval({ title: 'Write', allowSession: true })).toBe('deny');
+    } finally { await svc.dispose(); }
+  });
+
   it('marks unfinished checks as interrupted when the user stops a run', async () => {
     const { svc, codex, store } = setup();
     let started!: () => void;
