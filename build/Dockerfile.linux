@@ -1,0 +1,14 @@
+FROM node:24-bookworm
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgtk-3-0 libnss3 libasound2 libgbm1 xvfb xauth \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /project
+COPY package.json package-lock.json .npmrc ./
+# Build tools need their platform-specific optional dependencies. The packaging
+# allowlist excludes provider executables from the actual distribution.
+RUN npm ci
+COPY . .
+RUN npm run typecheck && npm test && npm run dist:linux
+# Root containers cannot use Chromium's sandbox. This flag is test-only;
+# normal packages retain the default sandbox settings.
+RUN AILO_SMOKE_CONTAINER=1 xvfb-run -a node scripts/smoke-package.mjs dist/linux-unpacked/ailo

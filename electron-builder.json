@@ -1,0 +1,37 @@
+{
+  "appId": "nl.ailo.desktop",
+  "productName": "Ailo",
+  "directories": { "output": "dist", "buildResources": "build" },
+  "files": [
+    "out/**/*",
+    "package.json",
+    "!node_modules/@anthropic-ai/claude-agent-sdk-*/**/*"
+  ],
+  "extraFiles": [{ "from": "docs/INSTALL.md", "to": "INSTALL.md" }],
+  "asar": true,
+  "npmRebuild": false,
+  "publish": null,
+  "win": {
+    "target": [{ "target": "nsis", "arch": ["x64"] }],
+    "icon": "build/icon.ico",
+    "artifactName": "Ailo-${version}-windows-${arch}-setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false,
+    "createDesktopShortcut": false,
+    "shortcutName": "Ailo"
+  },
+  "linux": {
+    "target": [
+      { "target": "AppImage", "arch": ["x64"] },
+      { "target": "tar.gz", "arch": ["x64"] }
+    ],
+    "icon": "build/icon.png",
+    "category": "Development",
+    "executableName": "ailo",
+    "artifactName": "Ailo-${version}-linux-${arch}.${ext}"
+  }
+}
