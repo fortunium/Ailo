@@ -468,7 +468,9 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .term-output > summary:hover { color: var(--accent); }
 .term-output > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .term-output-content { max-height: 28rem; overflow: auto; margin-top: 6px; }
-.t-command-head { display: flex; align-items: baseline; gap: .5ch; min-width: 0; }
-.t-command-head .t-mark { flex: none; }
-.t-command-head .t-command-preview { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-command-disclosure > summary { cursor: pointer; white-space: nowrap; width: fit-content; border-radius: 3px; }
+.t-command-disclosure > summary::marker { color: var(--term-dim); }
+.t-command-disclosure > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.t-command-disclosure > .term-output-content { margin-left: 20px; }
+.t-command-disclosure .t-exit, .t-command-disclosure .t-diagnostic { padding-left: 0; }
 .t-command-full { margin: 4px 0 8px; }

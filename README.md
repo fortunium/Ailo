@@ -89,14 +89,12 @@ worden direct bijgewerkt. Claude toont toolaanroepen al tijdens het opbouwen
 en meldt voortgang en achtergrondtaken wanneer de SDK die doorgeeft. Alleen
 door de provider gepubliceerde samenvattingen worden weergegeven.
 
-Command- en tooloutput is standaard ingeklapt achter **Output**, met het aantal
-regels en een live-indicator. Klik om alle uitvoer te bekijken en klik opnieuw
-om in te klappen. De gekozen stand blijft behouden tijdens live updates. Status,
-exitcode en waarschuwingen blijven zichtbaar naast de ingeklapte uitvoer.
-
-Lange opdrachten worden bovenaan als een korte regel getoond. Via **Details**
-bekijk je de volledige opdracht samen met de uitvoer, ook bij commando's zonder
-uitvoer.
+Een commando neemt standaard één uitklapbare regel in met een statusicoon en de
+actienaam. De volledige opdracht, exitcode, meldingen en uitvoer staan binnen het
+uitklapvak, ook bij commando's zonder uitvoer. Andere tooloutput is ingeklapt
+achter **Output**, met het aantal regels en een live-indicator. De gekozen stand
+blijft behouden tijdens live updates. Een waarschuwing of fout blijft herkenbaar
+aan het statusicoon.
 
 Een vraag die door een fout vóór aflevering niet bij de provider aankwam, blijft
 lokaal als **not yet delivered** staan. Bij je volgende bericht gaan die eerdere

@@ -259,13 +259,12 @@ export function Transcript({ conversationId, items, live }: { conversationId: st
 // ---- terminal view ---------------------------------------------------------
 
 /** Native disclosure keeps the user's choice while live output is updated. */
-function TermOutput({ text, live, command }: { text: string; live: boolean; command?: string }) {
+function TermOutput({ text, live }: { text: string; live: boolean }) {
   const count = text ? text.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').length : 0;
   return (
     <details className="term-output">
-      <summary>{command ? 'Details' : 'Output'} <span className="t-dim">· {count} {command ? 'output ' : ''}{count === 1 ? 'line' : 'lines'}{live ? ' · live' : ''}</span></summary>
+      <summary>Output <span className="t-dim">· {count} {count === 1 ? 'line' : 'lines'}{live ? ' · live' : ''}</span></summary>
       <div className="term-output-content">
-        {command && <div className="t-cmd t-command-full">$ {command}</div>}
         {text && <div className="t-out">{text}</div>}
       </div>
     </details>
@@ -303,23 +302,36 @@ function TermLine({ conversationId, item }: { conversationId: string; item: Chat
       );
     case 'tool': {
       const isCommand = item.title.startsWith('Command');
-      const commandPreview = item.subtitle?.replace(/\s+/g, ' ').trim() ?? '';
       const notice = isCommand ? commandOutputNotice(item.output) : undefined;
       const outputWarning = !!notice && item.status === 'done';
+      if (isCommand) return (
+        <details className={`t-tool t-command-disclosure t-${item.status} ${outputWarning ? 't-output-warning' : ''}`}>
+          <summary className="t-tool-head" title={item.detail ?? item.subtitle}>
+            <span className="t-mark" aria-label={outputWarning ? 'completed; check output' : TOOL_STATUS[item.status]}>{outputWarning ? '⚠' : TOOL_MARK[item.status]}</span>{' '}
+            <span className="t-toolname">{item.title}</span>
+            {item.status === 'interrupted' && <span className="t-dim"> · stopped</span>}
+          </summary>
+          <div className="term-output-content">
+            {item.subtitle && <div className="t-cmd t-command-full">$ {item.subtitle}</div>}
+            {item.exitCode != null && <div className="t-exit">exit {item.exitCode}</div>}
+            {item.status === 'interrupted' && <div className="t-exit">Stopped · no final result</div>}
+            {notice && <div className="t-diagnostic">{notice}</div>}
+            {item.output && <div className="t-out">{item.output}</div>}
+          </div>
+        </details>
+      );
       return (
         <div className={`t-tool t-${item.status} ${outputWarning ? 't-output-warning' : ''}`}>
-          <div className={`t-tool-head ${isCommand ? 't-command-head' : ''}`} title={item.detail ?? item.subtitle}>
+          <div className="t-tool-head" title={item.detail ?? item.subtitle}>
             <span className="t-mark" aria-label={outputWarning ? 'completed; check output' : TOOL_STATUS[item.status]}>
               {outputWarning ? '⚠' : TOOL_MARK[item.status]}
             </span>{' '}
-            {isCommand ? <span className="t-cmd t-command-preview">$ {commandPreview.length > 110 ? `${commandPreview.slice(0, 110)}…` : commandPreview}</span> : <>
-                <span className="t-toolname">{item.title}</span> {item.subtitle && <span className="t-dim">{item.subtitle}</span>}
-              </>}
+            <span className="t-toolname">{item.title}</span> {item.subtitle && <span className="t-dim">{item.subtitle}</span>}
           </div>
           {item.exitCode != null && <div className="t-exit">exit {item.exitCode}</div>}
           {item.status === 'interrupted' && <div className="t-exit">Stopped · no final result</div>}
           {notice && <div className="t-diagnostic">{notice}</div>}
-          {(item.output || isCommand && item.subtitle) && <TermOutput text={item.output ?? ''} live={item.status === 'running'} command={isCommand ? item.subtitle : undefined} />}
+          {item.output && <TermOutput text={item.output} live={item.status === 'running'} />}
         </div>
       );
     }
