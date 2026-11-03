@@ -112,6 +112,15 @@ Ailo gebruikt uitsluitend de terminalweergave. De invoer ondersteunt meerdere re
 
 ## Gebruik en modelinstellingen
 
+Eigen berichten hebben in beide thema's een aparte achtergrond, accentstrook en
+**You**-label, zodat de vraag duidelijk losstaat van het antwoord.
+
+Lokale bestandslinks in antwoorden openen een voorbeeld in Ailo. Tekst en code
+uit de werkmappen of bijlagen van het gesprek worden alleen gelezen; scripts
+worden niet uitgevoerd. **Show in folder** toont het bestand in de bestandsbeheerder.
+Voor grote of binaire bestanden is de mapactie beschikbaar. Ontbrekende bestanden
+en paden buiten de gespreksmappen geven een melding. Weblinks openen in de browser.
+
 Tijdens een beurt toont een activiteitenbalk de actieve commando's, tools en
 bestandswijzigingen. Codex-commandoutput en beschikbare voortgangsberichten
 worden direct bijgewerkt. Claude toont toolaanroepen al tijdens het opbouwen

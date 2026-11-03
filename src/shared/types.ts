@@ -344,5 +344,7 @@ export interface AiloApi {
   setSettings(patch: Partial<Settings>): Promise<void>;
   openExternal(url: string): Promise<void>;
   openConversationFolder(id: string): Promise<void>;
+  previewConversationFile(id: string, target: string): Promise<import('./file-links').LocalFilePreview>;
+  showConversationFile(id: string, target: string): Promise<void>;
   onEvent(cb: (e: MainEvent) => void): () => void;
 }

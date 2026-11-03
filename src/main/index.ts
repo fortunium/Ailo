@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { MainEvent, ProviderId } from '../shared/types';
 import { detectCli } from './cli';
 import { runtimePath } from './runtime-path';
+import { previewConversationFile, resolveConversationFile } from './file-links';
 import { ClaudeAdapter } from './providers/claude';
 import { CodexAdapter } from './providers/codex';
 import { AiloService } from './service';
@@ -133,6 +134,15 @@ app.whenReady().then(() => {
     if (patch.theme) nativeTheme.themeSource = patch.theme;
   });
   handle('openExternal', (url) => safeOpen(url));
+  const fileRoots = (id: string) => [...service.folders(service.conversation(id)), service.attachmentFolder(id)];
+  handle('previewConversationFile', (id, target) => previewConversationFile(target, fileRoots(id)));
+  handle('showConversationFile', async (id, target) => {
+    const real = await resolveConversationFile(target, fileRoots(id));
+    if ((await stat(real)).isDirectory()) {
+      const error = await shell.openPath(real);
+      if (error) throw new Error(error);
+    } else shell.showItemInFolder(real);
+  });
   handle('openConversationFolder', async (id) => {
     const folder = service.folders(service.conversation(id))[0];
     if (!folder || !(await stat(folder)).isDirectory()) throw new Error('Working folder not found.');
