@@ -8,8 +8,7 @@ bewust worden ingeschakeld; lees daarvoor de README.
 ## Branches (Gitflow)
 
 - `develop` is de standaardbranch voor de huidige ontwikkeling.
-- `master` bevat uitsluitend uitgebrachte versies. Deze begint met een lege
-  initialisatiecommit; de eerste versie staat voorlopig op `develop`.
+- `master` bevat uitsluitend uitgebrachte versies, vanaf v0.1.0.
 - Begin nieuw werk op `feature/<naam>` vanaf `develop` en open een pull request
   naar `develop`.
 - Bereid een versie voor op `release/<versie>` vanaf `develop`. Merge de release

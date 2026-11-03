@@ -7,9 +7,11 @@
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "postinstall": "install-electron",
+    "dev": "install-electron && electron-vite dev",
     "build": "electron-vite build",
-    "start": "electron-vite preview",
+    "start": "npm run release",
+    "release": "install-electron && electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "proof": "node scripts/isolation-proof.mjs",
@@ -41,5 +43,6 @@
     "vite": "^8.3.5",
     "vitest": "^5.1.0"
   },
-  "author": "Cerebellum90"
+  "author": "Cerebellum90",
+  "engines": { "node": ">=24.0.0" }
 }

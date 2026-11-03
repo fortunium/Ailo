@@ -1,5 +1,9 @@
 # Ailo installeren (0.1, testversie)
 
+Voor **v0.1.0** gebruik je de broncode met `npm ci` en `npm run dev`, of
+`npm run release`. Zie [Starten in de README](../README.md#starten).
+Onderstaande pakketinstructies zijn voorbereid voor toekomstige desktopdownloads.
+
 ## Windows (x64)
 
 Open `Ailo-0.1.0-windows-x64-setup.exe`. Installatie kan voor je eigen gebruiker.
