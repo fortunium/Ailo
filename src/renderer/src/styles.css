@@ -144,13 +144,14 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .st-idle { color: var(--muted); }
 .st-idle .status-icon { color: var(--ok); }
 .st-running { color: var(--accent); }
-.st-running .status-icon { display: inline-block; animation: status-pulse 1.8s ease-in-out infinite; }
+.st-running .status-icon { display: inline-block; position: relative; }
+.st-running .status-icon::after { content: ''; position: absolute; top: 50%; left: 50%; width: .6em; height: .6em; border: 1.5px solid currentColor; border-radius: 50%; opacity: 0; pointer-events: none; animation: status-ripple 1.8s ease-out infinite; }
 .st-await { color: #b7791f; font-weight: 600; }
 [data-theme='dark'] .st-await { color: #f0b84a; }
 .st-error { color: var(--danger); }
 .st-stopped { color: var(--muted); }
-@keyframes status-pulse { 0%, 100% { opacity: .5; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.05); } }
-@media (prefers-reduced-motion: reduce) { .st-running .status-icon, .steps-pulse.on, .cursor { animation: none !important; } }
+@keyframes status-ripple { from { opacity: .65; transform: translate(-50%, -50%) scale(.4); } to { opacity: 0; transform: translate(-50%, -50%) scale(2.2); } }
+@media (prefers-reduced-motion: reduce) { .st-running .status-icon::after, .steps-pulse.on, .cursor { animation: none !important; } }
 
 /* conversation */
 .conv { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel); }
