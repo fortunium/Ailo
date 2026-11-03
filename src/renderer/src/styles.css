@@ -26,6 +26,9 @@
   --term-dim: #6e7781;
   --term-accent: #0a7f5a;
   --term-cmd: #6f42c1;
+  --prompt-bg: #eaf1ff;
+  --prompt-border: #6693d9;
+  --prompt-text: #142747;
   --radius: 8px;
   font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
   font-size: 14px;
@@ -60,10 +63,19 @@
   --term-dim: #7d828b;
   --term-accent: #5fd7a0;
   --term-cmd: #c3a6ff;
+  --prompt-bg: #18263c;
+  --prompt-border: #5b8ff0;
+  --prompt-text: #e2ecff;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
+.brand { display: inline-flex; align-items: center; gap: 8px; }
+.brand img { border-radius: 7px; }
+.conv-item.unread .conv-name { font-weight: 700; color: var(--text); }
+.unread-indicator, .unread-count { flex: none; background: var(--accent); color: var(--accent-text); border-radius: 8px; font-size: 10px; font-weight: 700; padding: 1px 5px; line-height: 1.5; }
+.unread-count { margin-left: 6px; }
+.notification-toggle[aria-pressed='true'] { color: var(--accent); }
 html, body, #root { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--text); }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -128,16 +140,21 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .badge-missing { font-size: 11px; color: var(--muted); font-style: italic; }
 .status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; flex: none; }
 .status-icon { font-size: 10px; width: 12px; text-align: center; }
+.sidebar .status-icon { font-size: 16px; width: 18px; line-height: 18px; }
 .st-idle { color: var(--muted); }
 .st-idle .status-icon { color: var(--ok); }
 .st-running { color: var(--accent); }
-.st-running .status-icon { display: inline-block; animation: spin 1.2s linear infinite; }
+.st-running .status-icon { display: inline-flex; align-items: center; justify-content: center; gap: 2px; height: 1em; }
+.busy-dot { flex: none; width: 2.5px; height: 2.5px; border-radius: 50%; background: currentColor; opacity: .3; animation: busy-dots 1.4s ease-in-out infinite; }
+.sidebar .busy-dot { width: 4px; height: 4px; }
+.busy-dot:nth-child(2) { animation-delay: .16s; }
+.busy-dot:nth-child(3) { animation-delay: .32s; }
 .st-await { color: #b7791f; font-weight: 600; }
 [data-theme='dark'] .st-await { color: #f0b84a; }
 .st-error { color: var(--danger); }
 .st-stopped { color: var(--muted); }
-@keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .st-running .status-icon, .steps-pulse.on, .cursor { animation: none !important; } }
+@keyframes busy-dots { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .busy-dot, .steps-pulse.on, .cursor { animation: none !important; } .busy-dot { opacity: .7; } }
 
 /* conversation */
 .conv { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel); }
@@ -292,7 +309,12 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .conv-terminal .transcript, .conv-terminal .composer { background: var(--term-bg); }
 .transcript.term { display: block; color: var(--term-fg); font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, ui-monospace, monospace; font-size: 13px; line-height: 1.5; padding: 14px 20px; }
 .term-log > * { margin: 0 0 6px; }
-.t-user { color: var(--term-fg); font-weight: 600; white-space: pre-wrap; margin-top: 14px !important; }
+.t-user { color: var(--prompt-text); background: var(--prompt-bg); border-left: 3px solid var(--prompt-border); border-radius: 0 6px 6px 0; padding: 10px 14px; font-weight: 600; white-space: pre-wrap; margin: 18px 0 12px !important; }
+.t-user-label { color: var(--prompt-text); font: 600 10px 'Segoe UI', sans-serif; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; opacity: .8; }
+.t-user .t-prompt { color: var(--prompt-border); }
+.msg-user .bubble { background: var(--prompt-bg); color: var(--prompt-text); border-left: 3px solid var(--prompt-border); }
+.file-preview-path { color: var(--muted); font: 12px Consolas, monospace; overflow-wrap: anywhere; }
+.file-preview-error { color: var(--danger); white-space: normal; }
 .t-prompt { color: var(--term-accent); font-weight: 700; }
 .t-assistant { white-space: pre-wrap; overflow-wrap: anywhere; }
 .t-cursor { display: inline-block; width: 8px; height: 15px; background: var(--term-fg); vertical-align: text-bottom; animation: blink 1s steps(2) infinite; }
@@ -338,7 +360,7 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .context-usage { white-space: nowrap; }
 .run-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 7px 20px; background: var(--term-bg); border-top: 1px solid var(--border); font-size: 12px; }
 .run-controls label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-.run-controls select { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; max-width: 280px; color: var(--text); font-size: 12px; }
+.run-controls select, .approval-controls select { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; max-width: 280px; color: var(--text); font-size: 12px; }
 .speed-note { flex-basis: 100%; font-size: 11px; }
 .working-folder { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .terminal-composer { flex-shrink: 0; border-top: 1px solid var(--border); padding: 10px 20px 9px; }
@@ -395,6 +417,11 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .run-controls-compact select { max-width: 170px; font-size: 11px; padding: 3px 5px; }
 .run-controls-compact select[aria-label='Reasoning'] { max-width: 115px; }
 .run-controls-compact select[aria-label='Speed'] { max-width: 90px; }
+.approval-controls { font-size: 11px; }
+.approval-controls label { display: flex; align-items: center; gap: 6px; }
+.approval-controls label > span { color: var(--muted); }
+.approval-controls select { font-size: 11px; padding: 3px 5px; max-width: 120px; }
+.approval-controls.auto-approve select { border-color: var(--accent); color: var(--accent); }
 .conversation-info .usage-compact { margin-left: auto; width: auto; flex: 0 1 auto; gap: 6px 10px; font-size: 11px; max-width: 100%; }
 .usage-compact .usage-window { gap: 5px; flex-wrap: nowrap; }
 .usage-compact .usage-window meter { width: 38px; }

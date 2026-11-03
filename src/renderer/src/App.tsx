@@ -22,6 +22,26 @@ export function App() {
 
   useEffect(startStore, []);
 
+  useEffect(() => api.onEvent((e) => {
+    if (e.type === 'open_conversation') { setActiveId(e.conversationId); setPage('conversation'); }
+  }), []);
+
+  useEffect(() => {
+    if (!app) return;
+    const sync = () => {
+      const id = page === 'conversation' && document.visibilityState !== 'hidden' && document.hasFocus() ? activeId ?? null : null;
+      void api.setViewedConversation?.(id).catch(() => {});
+    };
+    sync();
+    window.addEventListener('focus', sync); window.addEventListener('blur', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      window.removeEventListener('focus', sync); window.removeEventListener('blur', sync);
+      document.removeEventListener('visibilitychange', sync);
+      void api.setViewedConversation?.(null).catch(() => {});
+    };
+  }, [!!app, activeId, page]);
+
   // Apply theme: "system" follows the OS via prefers-color-scheme.
   useEffect(() => {
     if (!app) return;
@@ -96,6 +116,7 @@ export function App() {
         onOpenAccounts={() => setDialog('accounts')}
         onSearch={() => setDialog('search')}
         onToggleTheme={() => void api.setSettings({ theme: THEMES[(THEMES.indexOf(app.settings.theme) + 1) % THEMES.length] })}
+        onToggleNotifications={() => void api.setSettings({ notifications: app.settings.notifications === false }).catch((e) => setNotice((e as Error).message))}
       />
       {page === 'automations' ? <Automations app={app} onOpenConversation={(id) => { setActiveId(id); setPage('conversation'); }}/> : page === 'integrations' ? <Integrations app={app}/> : active ? (
         <ConversationView key={active.id} app={app} conv={active} onOpenAccounts={() => setDialog('accounts')} renameSignal={renameSignal} onDeleted={setNotice} />

@@ -8,6 +8,7 @@ import { Activity } from './Activity';
 import { AccountBadge, Dialog, shortPath, StatusDot } from './ui';
 import { Composer } from './Composer';
 import { RunControls } from './RunControls';
+import { ApprovalControls } from './ApprovalControls';
 import { Usage } from './Usage';
 import { emptyTools, ToolPicker } from './ToolPicker';
 
@@ -115,6 +116,7 @@ export function ConversationView({ app, conv, onOpenAccounts, renameSignal, onDe
     <Composer conv={conv} alias={account?.alias} disabled={conv.archived || !account || deleteBusy} onSend={send}/>
     {account && <div className="conversation-info" aria-label="Model and account usage">
       <RunControls conv={conv} busy={busy || deleteBusy} compact/>
+      <ApprovalControls settings={app.settings} report={conv.executionMode === 'report'}/>
       <Usage account={account} compact/>
       {conv.context && <span className="context-usage muted small" title={`Context: ${conv.context.tokens.toLocaleString()}${conv.context.window ? ` / ${conv.context.window.toLocaleString()}` : ''} tokens${conv.context.costUsd != null ? ` · API estimate $${conv.context.costUsd.toFixed(3)} (not a subscription charge)` : ''}`}>Context {conv.context.window ? `${Math.round(100 * conv.context.tokens / conv.context.window)}%` : `${(conv.context.tokens / 1000).toFixed(1)}k`}</span>}
     </div>}
