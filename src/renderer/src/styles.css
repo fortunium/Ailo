@@ -349,7 +349,7 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .context-usage { white-space: nowrap; }
 .run-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 7px 20px; background: var(--term-bg); border-top: 1px solid var(--border); font-size: 12px; }
 .run-controls label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-.run-controls select { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; max-width: 280px; color: var(--text); font-size: 12px; }
+.run-controls select, .approval-controls select { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; max-width: 280px; color: var(--text); font-size: 12px; }
 .speed-note { flex-basis: 100%; font-size: 11px; }
 .working-folder { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .terminal-composer { flex-shrink: 0; border-top: 1px solid var(--border); padding: 10px 20px 9px; }
@@ -406,6 +406,11 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .run-controls-compact select { max-width: 170px; font-size: 11px; padding: 3px 5px; }
 .run-controls-compact select[aria-label='Reasoning'] { max-width: 115px; }
 .run-controls-compact select[aria-label='Speed'] { max-width: 90px; }
+.approval-controls { font-size: 11px; }
+.approval-controls label { display: flex; align-items: center; gap: 6px; }
+.approval-controls label > span { color: var(--muted); }
+.approval-controls select { font-size: 11px; padding: 3px 5px; max-width: 120px; }
+.approval-controls.auto-approve select { border-color: var(--accent); color: var(--accent); }
 .conversation-info .usage-compact { margin-left: auto; width: auto; flex: 0 1 auto; gap: 6px 10px; font-size: 11px; max-width: 100%; }
 .usage-compact .usage-window { gap: 5px; flex-wrap: nowrap; }
 .usage-compact .usage-window meter { width: 38px; }

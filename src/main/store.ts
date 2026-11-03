@@ -33,7 +33,7 @@ function readJson<T>(file: string): T | undefined {
 }
 
 export function emptyState(): AppState {
-  return { accounts: [], projects: [], conversations: [], connections: [], skills: [], plugins: [], automations: [], automationRuns: [], settings: { theme: 'system', onboardingDone: false } };
+  return { accounts: [], projects: [], conversations: [], connections: [], skills: [], plugins: [], automations: [], automationRuns: [], settings: { theme: 'system', onboardingDone: false, approvalMode: 'ask' } };
 }
 
 export class Store {

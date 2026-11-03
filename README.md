@@ -102,6 +102,22 @@ De eerste testpakketten zijn niet ondertekend en updates zijn handmatig.
 | F2 | Gesprek hernoemen |
 | Alt+↑ / Alt+↓ | Vorig / volgend gesprek |
 
+## Toestemmingen
+
+Naast de modelinstellingen staat **Permissions: Ask / Always allow**. De keuze
+geldt voor alle gesprekken en blijft na een herstart bewaard. **Ask** is de
+standaard. Met **Always allow** keurt Ailo toolverzoeken automatisch goed,
+waaronder commando's, bestandswijzigingen en extra toegang die de provider vraagt.
+Ook openstaande toestemmingsverzoeken in lopende taken worden goedgekeurd zodra
+je dit inschakelt. Je kunt tijdens een taak terugschakelen naar **Ask** voor
+volgende verzoeken. Eerder handmatig verleende sessietoestemmingen kunnen bij de
+provider blijven gelden tot de sessie eindigt.
+
+Inhoudelijke vragen blijven op jouw antwoord wachten. Rapportages in de aparte
+alleen-lezenmodus blijven alleen lezen en zoeken toestaan; daar toont de keuze
+**Read only**. Provider- en MCP-beperkingen blijven gelden. Automatisch
+goedgekeurde acties worden in het technische log vermeld.
+
 ## Terminal, bijlagen en losse gesprekken
 
 Ailo gebruikt uitsluitend de terminalweergave. De invoer ondersteunt meerdere regels, lange plaktekst (inklapbaar zonder tekst te verliezen), geplakte afbeeldingen en gesleepte of gekozen bestanden. Niet-verstuurde tekst en bijlagen blijven bewaard bij het wisselen tussen gesprekken zolang de app open is. Maximaal 10 bijlagen per bericht, 20 MB per bestand en 5 MB per afbeelding (PNG, JPEG, GIF of WebP). Afbeeldingen gaan als beeldinvoer naar het model; andere bestanden worden als lokale kopie beschikbaar gemaakt.

@@ -178,6 +178,8 @@ export interface CliInfo {
 export interface Settings {
   theme: 'system' | 'light' | 'dark';
   onboardingDone: boolean;
+  /** Persistent tool approval preference for all conversations. Missing = ask. */
+  approvalMode?: 'ask' | 'always';
 }
 
 export interface AppState {
