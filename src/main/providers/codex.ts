@@ -11,6 +11,7 @@ import { attachmentPrompt } from '../attachments';
 import { codexMcpConfig, connectionName } from '../integrations';
 import { codexPluginId, installCodexPlugins } from './codex-plugins';
 import { handleElicitation } from './elicitation';
+import { runtimeInstructions } from './runtime-instructions';
 import { detectCli } from '../cli';
 import { providerEnv } from '../env';
 import { redact, stripAnsi } from '../redact';
@@ -166,7 +167,7 @@ class CodexServer {
       if (p.mode !== 'report' && p.tools) Object.assign(config, codexMcpConfig(p.tools, p.credentials ?? {}));
     }
     if (p.mode === 'report') Object.assign(config, { 'features.hooks': false, 'features.apps': false, 'features.computer_use': false, 'features.browser_use': false });
-    const instructions = (p.tools?.skills ?? []).map((s) => `Skill: ${s.name}\n${s.instructions}`).join('\n\n');
+    const instructions = [runtimeInstructions(), ...(p.tools?.skills ?? []).map((s) => `Skill: ${s.name}\n${s.instructions}`)].join('\n\n');
     const threadOpts = {
       cwd: p.cwd,
       approvalPolicy: 'on-request',
@@ -406,7 +407,8 @@ export function mapItem(item: any, completed: boolean, turn?: Pick<ActiveTurn, '
         detail: item.cwd ? `${item.command}
 folder: ${item.cwd}${item.exitCode != null ? ` · exit code ${item.exitCode}` : ''}` : undefined,
         output: redact(item.aggregatedOutput ?? turn?.output.get(item.id) ?? ''),
-        status: statusMap[item.status] ?? (completed ? 'done' : 'running'),
+        exitCode: item.exitCode ?? undefined,
+        status: item.status === 'declined' ? 'declined' : item.exitCode != null && item.exitCode !== 0 ? 'failed' : statusMap[item.status] ?? (completed ? 'done' : 'running'),
         at
       };
     case 'fileChange':

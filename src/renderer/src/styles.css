@@ -459,3 +459,7 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .activity-action span, .t-delivery { opacity: .65; }
 @keyframes activity-pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .activity-dot { animation: none; } }
+.t-output-warning .t-mark, .t-diagnostic { color: #c68d29; }
+.t-diagnostic { font-size: 11px; padding: 3px 0 3px 20px; }
+.t-interrupted .t-mark, .t-exit { opacity: .65; }
+.t-exit { font-size: 11px; padding-left: 20px; }

@@ -95,6 +95,13 @@ vragen en bijlagen mee, ook na een herstart. Een sessie-ID alleen geldt niet als
 bewijs dat een vraag is ontvangen. Bekende oudere Codex-pluginstartfouten worden
 ook herkend, zodat de oorspronkelijke vraag alsnog beschikbaar komt.
 
+Gestopte acties tonen **Stopped · no final result**. Bij afgeronde commando's
+is de exitcode zichtbaar wanneer de provider die doorgeeft. Bekende foutmeldingen
+en buildwaarschuwingen in de uitvoer krijgen een aparte melding; een exitcode 0
+is bij gecombineerde PowerShell-opdrachten geen bewijs dat alle deelopdrachten
+zijn geslaagd. Deze herkenning is een aanwijzing om de uitvoer te controleren,
+geen volledige analyse van alle mogelijke toolmeldingen.
+
 Accounts en de gespreksvoet tonen het abonnementsgebruik van het betreffende account, met resetmomenten en het tijdstip van de laatste meting. Ze verversen bij starten, na een beurt, elke minuut zolang ze zichtbaar zijn, en met **Refresh usage**. Ontbrekende cijfers worden als niet beschikbaar getoond. Claude biedt deze gegevens via een experimenteel SDK-endpoint; dat staat bij de meter. Het contextgebruik van het gesprek wordt afzonderlijk getoond na modelaanvragen.
 
 Onder het gesprek kies je **Model**, **Reasoning** en **Speed**, op basis van de catalogus van de gekoppelde CLI. Instellingen blijven per gesprek bewaard en gelden vanaf de volgende beurt; wijzigen tijdens een lopende beurt is geblokkeerd. Een catalogus is geen garantie dat je abonnement elk model toestaat. Fast gebruikt bij Codex 2,5x de inbegrepen abonnementsruimte, en gekochte credits kosten 2x standaard. Zie de officiele [Speed-documentatie](https://learn.chatgpt.com/docs/agent-configuration/speed) en het [App Server-protocol](https://learn.chatgpt.com/docs/app-server).

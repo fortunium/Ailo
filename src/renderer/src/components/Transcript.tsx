@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { ApprovalDecision, ChatItem } from '../../../shared/types';
+import { commandOutputNotice } from '../../../shared/command-diagnostics';
 import { api } from '../api';
 import { DiffText, FileChangeCode, Markdown } from './Markdown';
 
@@ -19,8 +20,8 @@ function group(items: ChatItem[]): Block[] {
   return out;
 }
 
-const TOOL_STATUS: Record<string, string> = { running: 'running', done: 'done', failed: 'failed', declined: 'declined' };
-const DIFF_STATUS = { pending: 'proposed', applied: 'applied', failed: 'failed', declined: 'declined' } as const;
+const TOOL_STATUS: Record<string, string> = { running: 'running', done: 'done', failed: 'failed', declined: 'declined', interrupted: 'stopped' };
+const DIFF_STATUS = { pending: 'proposed', applied: 'applied', failed: 'failed', declined: 'declined', interrupted: 'stopped' } as const;
 const APPROVAL_RESULT = { approved: 'Allowed', approved_session: 'Allowed for this session', denied: 'Denied', cancelled: 'Expired' } as const;
 
 function StepRow({ step }: { step: Step }) {
@@ -276,7 +277,7 @@ function TermOutput({ text }: { text: string }) {
   );
 }
 
-const TOOL_MARK: Record<string, string> = { running: '…', done: '✓', failed: '✗', declined: '⊘' };
+const TOOL_MARK: Record<string, string> = { running: '…', done: '✓', failed: '✗', declined: '⊘', interrupted: '■' };
 
 function TermLine({ conversationId, item }: { conversationId: string; item: ChatItem }) {
   switch (item.kind) {
@@ -307,16 +308,21 @@ function TermLine({ conversationId, item }: { conversationId: string; item: Chat
       );
     case 'tool': {
       const isCommand = item.title.startsWith('Command');
+      const notice = isCommand ? commandOutputNotice(item.output) : undefined;
+      const outputWarning = !!notice && item.status === 'done';
       return (
-        <div className={`t-tool t-${item.status}`}>
-          <div className="t-tool-head">
-            <span className="t-mark" aria-label={item.status}>
-              {TOOL_MARK[item.status]}
+        <div className={`t-tool t-${item.status} ${outputWarning ? 't-output-warning' : ''}`}>
+          <div className="t-tool-head" title={item.detail}>
+            <span className="t-mark" aria-label={outputWarning ? 'completed; check output' : TOOL_STATUS[item.status]}>
+              {outputWarning ? '⚠' : TOOL_MARK[item.status]}
             </span>{' '}
             {isCommand ? <span className="t-cmd">$ {item.subtitle}</span> : <>
                 <span className="t-toolname">{item.title}</span> {item.subtitle && <span className="t-dim">{item.subtitle}</span>}
               </>}
           </div>
+          {item.exitCode != null && <div className="t-exit">exit {item.exitCode}</div>}
+          {item.status === 'interrupted' && <div className="t-exit">Stopped · no final result</div>}
+          {notice && <div className="t-diagnostic">{notice}</div>}
           {item.output && <TermOutput text={item.output} />}
         </div>
       );

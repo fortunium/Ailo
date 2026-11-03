@@ -112,10 +112,11 @@ export type ChatItem =
       subtitle?: string;
       detail?: string;
       output?: string;
-      status: 'running' | 'done' | 'failed' | 'declined';
+      status: 'running' | 'done' | 'failed' | 'declined' | 'interrupted';
+      exitCode?: number;
       at: string;
     }
-  | { kind: 'diff'; id: string; files: { path: string; change: string; diff: string }[]; status: 'pending' | 'applied' | 'failed' | 'declined'; at: string }
+  | { kind: 'diff'; id: string; files: { path: string; change: string; diff: string }[]; status: 'pending' | 'applied' | 'failed' | 'declined' | 'interrupted'; at: string }
   | { kind: 'approval'; id: string; request: ApprovalRequest; resolution?: 'approved' | 'approved_session' | 'denied' | 'cancelled'; at: string }
   | { kind: 'question'; id: string; questions: Question[]; answers?: Record<string, string>; resolution?: 'answered' | 'cancelled'; at: string }
   | { kind: 'notice'; id: string; level: 'info' | 'warning' | 'error'; text: string; detail?: string; at: string };

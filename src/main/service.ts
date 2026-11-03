@@ -602,18 +602,19 @@ export class AiloService {
       });
       if (run.stopping) void run.handle.stop();
       const outcome = await run.handle.done;
-      this.finishOpenItems(c.id);
+      this.finishOpenItems(c.id, outcome.status === 'interrupted' || run.stopping && outcome.status !== 'completed' ? 'interrupted' : 'failed');
       if (outcome.status === 'completed') { acceptInput(); this.setStatus(c, 'idle'); }
-      else if (outcome.status === 'interrupted') {
+      else if (outcome.status === 'interrupted' || run.stopping) {
         this.item(c.id, { kind: 'notice', id: randomUUID(), level: 'info', text: 'Run stopped.', at: now() });
         this.setStatus(c, 'interrupted');
       } else {
         this.failRun(c, hideSecrets(outcome.message, secrets), outcome.authProblem);
       }
     } catch (err) {
-      this.finishOpenItems(c.id);
+      this.finishOpenItems(c.id, run.stopping ? 'interrupted' : 'failed');
       const e = err as ProviderError;
-      this.failRun(c, hideSecrets(e.message, secrets), e.authProblem);
+      if (run.stopping) this.setStatus(c, 'interrupted');
+      else this.failRun(c, hideSecrets(e.message, secrets), e.authProblem);
     } finally {
       for (const resolve of run.prompts.values()) resolve(null);
       this.runs.delete(c.id);
@@ -642,12 +643,12 @@ export class AiloService {
   }
 
   /** Close streaming/running items so nothing appears to be in progress after a run ends. */
-  private finishOpenItems(conversationId: string): void {
+  private finishOpenItems(conversationId: string, status: 'failed' | 'interrupted' = 'failed'): void {
     for (const item of this.store.transcript(conversationId).items) {
       let changed = false;
       if (item.kind === 'assistant' && item.streaming) (item.streaming = false), (changed = true);
-      if (item.kind === 'tool' && item.status === 'running') (item.status = 'failed'), (changed = true);
-      if (item.kind === 'diff' && item.status === 'pending') (item.status = 'failed'), (changed = true);
+      if (item.kind === 'tool' && item.status === 'running') (item.status = status), (changed = true);
+      if (item.kind === 'diff' && item.status === 'pending') (item.status = status), (changed = true);
       if (changed) this.emit({ type: 'item', conversationId, item });
     }
   }

@@ -13,6 +13,7 @@ import { claudeMcpConfig, connectionName, pluginMcpConfig } from '../integration
 import { handleElicitation } from './elicitation';
 import { detectCli } from '../cli';
 import { claudeTaskActivity } from './claude-activity';
+import { runtimeInstructions } from './runtime-instructions';
 import { providerEnv } from '../env';
 import { redact, stripAnsi } from '../redact';
 import { looksLikeAuthProblem, ProviderError, type LoginHandle, type ProviderAdapter, type RunHandle, type RunOutcome, type RunParams } from './types';
@@ -255,13 +256,13 @@ export class ClaudeAdapter implements ProviderAdapter {
         model: p.options?.model,
         effort: p.options?.effort as any,
         settings: { fastMode: !!p.options?.fast, ...(p.mode === 'report' ? { disableAllHooks: true } : {}) },
+        systemPrompt: { type: 'preset', preset: 'claude_code', append: [runtimeInstructions(), ...(p.tools?.skills ?? []).map((s) => `Skill: ${s.name}\n${s.instructions}`)].join('\n\n') },
         ...(p.tools ? {
           strictMcpConfig: true,
           mcpServers: p.mode === 'report' ? {} : { ...pluginMcpConfig(p.tools.plugins), ...claudeMcpConfig(p.tools, p.credentials ?? {}) },
           pluginDelivery: 'initialize' as const,
           plugins: p.mode === 'report' ? [] : p.tools.plugins.map((plugin) => ({ type: 'local' as const, path: plugin.path, skipMcpDiscovery: true })),
-          settingSources: [],
-          systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append: p.tools.skills.map((s) => `Skill: ${s.name}\n${s.instructions}`).join('\n\n') }
+          settingSources: []
         } : {}),
         ...(p.mode === 'report' ? { tools: ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'AskUserQuestion'], disallowedTools: ['Bash', 'PowerShell', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Agent', 'Task', 'mcp__*'] } : {}),
         env: providerEnv('claude', p.home),
