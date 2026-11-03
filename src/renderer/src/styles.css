@@ -70,6 +70,12 @@
 }
 
 * { box-sizing: border-box; }
+.brand { display: inline-flex; align-items: center; gap: 8px; }
+.brand img { border-radius: 7px; }
+.conv-item.unread .conv-name { font-weight: 700; color: var(--text); }
+.unread-indicator, .unread-count { flex: none; background: var(--accent); color: var(--accent-text); border-radius: 8px; font-size: 10px; font-weight: 700; padding: 1px 5px; line-height: 1.5; }
+.unread-count { margin-left: 6px; }
+.notification-toggle[aria-pressed='true'] { color: var(--accent); }
 html, body, #root { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--text); }
 button, input, select, textarea { font: inherit; color: inherit; }

@@ -111,6 +111,56 @@ function setup(conn: AccountConnection = { state: 'connected', email: 'a@x', che
 }
 
 describe('AiloService', () => {
+  it.each(['codex', 'claude'] as const)('persists unread completions for %s and clears them only when viewed', async (provider) => {
+    const { svc, runs, store, events, codex, claude } = setup();
+    const a = svc.addAccount({ provider, alias: 'Unread fixture', color: '#000' });
+    const c = svc.createConversation({ accountId: a.id });
+    const other = svc.createConversation({ accountId: a.id });
+    try {
+      svc.setViewedConversation(other.id);
+      await svc.sendMessage(c.id, 'First turn');
+      await vi.waitFor(() => expect(runs).toHaveLength(1));
+      (provider === 'codex' ? codex : claude).finish();
+      await vi.waitFor(() => expect(c.status).toBe('idle'));
+      expect(c.unread).toBe(true);
+      expect(new Store(store.root).state.conversations.find(x => x.id === c.id)?.unread).toBe(true);
+      expect(events.filter(e => e.type === 'turn_finished')).toEqual([{ type: 'turn_finished', conversationId: c.id, outcome: 'completed' }]);
+      const updatedAt = c.updatedAt;
+      svc.setViewedConversation(c.id);
+      expect(c.unread).toBe(false);
+      expect(c.updatedAt).toBe(updatedAt);
+      expect(new Store(store.root).state.conversations.find(x => x.id === c.id)?.unread).toBe(false);
+      await svc.sendMessage(c.id, 'Second turn');
+      await vi.waitFor(() => expect(runs).toHaveLength(2));
+      (provider === 'codex' ? codex : claude).finish();
+      await vi.waitFor(() => expect(c.status).toBe('idle'));
+      expect(c.unread).toBe(false); // Already looking at this conversation.
+      await svc.sendMessage(c.id, 'Third turn');
+      await vi.waitFor(() => expect(runs).toHaveLength(3));
+      svc.setViewedConversation(null); // Window lost focus or another page opened.
+      (provider === 'codex' ? codex : claude).finish();
+      await vi.waitFor(() => expect(c.status).toBe('idle'));
+      expect(c.unread).toBe(true);
+    } finally { await svc.dispose(); }
+  });
+
+  it('marks a failed background task unread, but does not announce a stopped task as complete', async () => {
+    const { svc, events, codex } = setup();
+    const a = svc.addAccount({ provider: 'codex', alias: 'Failure fixture', color: '#000' });
+    const c = svc.createConversation({ accountId: a.id });
+    try {
+      codex.adapter.runTurn = async () => ({ done: Promise.resolve({ status: 'failed', message: 'Fixture failure' }), stop: async () => {} });
+      await svc.sendMessage(c.id, 'Fail', { wait: true });
+      expect(c.unread).toBe(true);
+      expect(events.filter(e => e.type === 'turn_finished')).toEqual([{ type: 'turn_finished', conversationId: c.id, outcome: 'failed' }]);
+      svc.setViewedConversation(c.id); svc.setViewedConversation(null);
+      codex.adapter.runTurn = async () => ({ done: Promise.resolve({ status: 'interrupted' }), stop: async () => {} });
+      await svc.sendMessage(c.id, 'Stop', { wait: true });
+      expect(c.unread).toBe(false);
+      expect(events.filter(e => e.type === 'turn_finished')).toHaveLength(1);
+    } finally { await svc.dispose(); }
+  });
+
   it.each(['codex', 'claude'] as const)('persists automatic approvals for %s and can switch back to asking during a run', async (provider) => {
     const { svc, runs, store } = setup();
     const a = svc.addAccount({ provider, alias: 'Fixture', color: '#000' });

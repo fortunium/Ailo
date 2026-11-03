@@ -22,6 +22,7 @@ const api: AiloApi = {
   stopAutomationRun: call('stopAutomationRun') as AiloApi['stopAutomationRun'],
   removeAutomationRun: call('removeAutomationRun') as AiloApi['removeAutomationRun'],
   getState: call('getState') as AiloApi['getState'],
+  setViewedConversation: call('setViewedConversation') as AiloApi['setViewedConversation'],
   detectClis: call('detectClis') as AiloApi['detectClis'],
   addAccount: call('addAccount') as AiloApi['addAccount'],
   updateAccount: call('updateAccount') as AiloApi['updateAccount'],

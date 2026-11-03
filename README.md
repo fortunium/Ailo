@@ -102,6 +102,30 @@ De eerste testpakketten zijn niet ondertekend en updates zijn handmatig.
 | F2 | Gesprek hernoemen |
 | Alt+↑ / Alt+↓ | Vorig / volgend gesprek |
 
+## Meldingen en ongelezen antwoorden
+
+Wanneer een taak klaar is terwijl je een ander gesprek bekijkt of Ailo op de
+achtergrond staat, verschijnt een desktopmelding. Aanklikken brengt Ailo naar
+voren en opent het betreffende gesprek. Bij een mislukte taak toont de melding
+dat er een fout is. Gestopte taken geven geen klaar-melding. Via de belknop
+onderaan de zijbalk zet je meldingen aan of uit; de keuze blijft bewaard.
+
+Een ongelezen antwoord krijgt **New** en een vetgedrukte gesprekstitel. Bij een
+ingeklapt project blijft een teller zichtbaar. Ongelezen antwoorden blijven na
+een herstart gemarkeerd totdat je het gesprek in het actieve Ailo-venster opent.
+Deze markering staat los van de status (bezig, klaar of fout) en werkt ook met
+desktopmeldingen uitgeschakeld.
+
+Desktopmeldingen vereisen dat je besturingssysteem ze toestaat. Voor Windows in
+ontwikkelmodus maakt Ailo een eigen **Ailo (development)**-snelkoppeling in het
+Startmenu om meldingen via `npm run dev` mogelijk te maken. Op Linux is een
+desktopomgeving met een meldingsdienst nodig. De zijbalk blijft bruikbaar als
+het systeem een melding niet kan tonen. De app moet geopend blijven om taken
+uit te voeren en meldingen te versturen.
+
+Het appicoon staat in `build/`; zie [build/README.md](build/README.md) voor de
+bron en het opnieuw genereren van de verschillende formaten.
+
 ## Toestemmingen
 
 Naast de modelinstellingen staat **Permissions: Ask / Always allow**. De keuze

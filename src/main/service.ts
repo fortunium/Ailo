@@ -64,6 +64,7 @@ interface ActiveRun {
 }
 
 export class AiloService {
+  private viewedConversationId: string | null = null;
   readonly automations: AutomationManager;
   private runs = new Map<string, ActiveRun>();
   private logins = new Map<string, LoginHandle>();
@@ -469,11 +470,23 @@ export class AiloService {
   }
 
   private setStatus(c: Conversation, status: Conversation['status'], lastError?: string): void {
+    const finished = ['running', 'awaiting_input'].includes(c.status) && (status === 'idle' || status === 'error');
     c.status = status;
     c.lastError = lastError;
     c.updatedAt = now();
+    if (finished) c.unread = this.viewedConversationId !== c.id;
     this.automations.conversationChanged(c);
     this.publish();
+    if (finished) this.emit({ type: 'turn_finished', conversationId: c.id, outcome: status === 'idle' ? 'completed' : 'failed' });
+  }
+
+  setViewedConversation(id: string | null): void {
+    const c = id ? this.conversation(id) : undefined;
+    this.viewedConversationId = c?.id ?? null;
+    if (c?.unread) {
+      c.unread = false;
+      this.publish();
+    }
   }
 
   async sendMessage(conversationId: string, text: string, opts: { acknowledgeConflicts?: boolean; wait?: boolean; attachments?: Attachment[] } = {}): Promise<StartTurnResult> {

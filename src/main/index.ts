@@ -11,6 +11,7 @@ import { CodexAdapter } from './providers/codex';
 import { AiloService } from './service';
 import { Store } from './store';
 import { SecretVault } from './secrets';
+import { CompletionNotifications, setupNotificationIdentity } from './notifications';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 process.env.PATH = runtimePath();
@@ -20,9 +21,12 @@ if (!app.requestSingleInstanceLock()) app.quit();
 
 let win: BrowserWindow | undefined;
 let service: AiloService;
+let notifications: CompletionNotifications | undefined;
+const icon = path.join(here, '../renderer/icon.png');
 
 function send(e: MainEvent): void {
   win?.webContents.send('ailo:event', e);
+  notifications?.handle(e);
 }
 
 function safeOpen(url: string): void {
@@ -43,6 +47,7 @@ function createWindow(): void {
     minWidth: 820,
     minHeight: 520,
     title: 'Ailo',
+    icon,
     backgroundColor: dark ? '#17181b' : '#f7f7f5',
     autoHideMenuBar: true,
     webPreferences: {
@@ -66,6 +71,9 @@ function createWindow(): void {
   if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL);
   else void win.loadFile(path.join(here, '../renderer/index.html'));
   win.on('closed', () => (win = undefined));
+  win.on('blur', () => service.setViewedConversation(null));
+  win.on('minimize', () => service.setViewedConversation(null));
+  win.on('focus', () => win?.flashFrame(false));
 }
 
 function handle(channel: string, fn: (...args: any[]) => unknown): void {
@@ -79,8 +87,15 @@ app.whenReady().then(() => {
     return safeStorage.encryptStringAsync(text);
   }, async (data) => (await safeStorage.decryptStringAsync(data)).result));
   store.recoverInterrupted();
+  setupNotificationIdentity(path.join(here, '../renderer/icon.ico'));
+  notifications = new CompletionNotifications(service, () => win, icon);
 
   handle('getState', () => service.state);
+  handle('setViewedConversation', (id) => {
+    const viewed = win?.isFocused() && !win.isMinimized() ? id : null;
+    service.setViewedConversation(viewed);
+    if (viewed) notifications?.dismiss(viewed);
+  });
   handle('authorizeConnection', (id) => service.authorizeConnection(id));
   handle('saveConnection', (input) => service.saveConnection(input));
   handle('removeConnection', (input) => service.removeConnection(input));
@@ -115,7 +130,11 @@ app.whenReady().then(() => {
   handle('createConversation', (input) => service.createConversation(input));
   handle('renameConversation', (id, title) => service.renameConversation(id, title));
   handle('archiveConversation', (id, archived) => service.archiveConversation(id, archived));
-  handle('deleteConversation', (id) => service.deleteConversation(id));
+  handle('deleteConversation', async (id) => {
+    const result = await service.deleteConversation(id);
+    if (result.ok) notifications?.dismiss(id);
+    return result;
+  });
   handle('setConversationOptions', (id, options) => service.setConversationOptions(id, options));
   handle('attachFiles', (id, paths) => service.attachFiles(id, paths));
   handle('attachData', (id, name, data) => service.attachData(id, name, data));
@@ -131,6 +150,7 @@ app.whenReady().then(() => {
   handle('folderConflicts', (id) => service.folderConflicts(id));
   handle('setSettings', (patch) => {
     service.setSettings(patch);
+    if (patch.notifications === false) { notifications?.clear(); win?.flashFrame(false); }
     if (patch.theme) nativeTheme.themeSource = patch.theme;
   });
   handle('openExternal', (url) => safeOpen(url));
