@@ -467,4 +467,8 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .term-output > summary { cursor: pointer; color: var(--term-dim); width: fit-content; border-radius: 3px; }
 .term-output > summary:hover { color: var(--accent); }
 .term-output > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.term-output > .t-out { max-height: 28rem; overflow: auto; margin-top: 6px; }
+.term-output-content { max-height: 28rem; overflow: auto; margin-top: 6px; }
+.t-command-head { display: flex; align-items: baseline; gap: .5ch; min-width: 0; }
+.t-command-head .t-mark { flex: none; }
+.t-command-head .t-command-preview { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-command-full { margin: 4px 0 8px; }

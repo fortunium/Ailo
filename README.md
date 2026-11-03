@@ -94,6 +94,10 @@ regels en een live-indicator. Klik om alle uitvoer te bekijken en klik opnieuw
 om in te klappen. De gekozen stand blijft behouden tijdens live updates. Status,
 exitcode en waarschuwingen blijven zichtbaar naast de ingeklapte uitvoer.
 
+Lange opdrachten worden bovenaan als een korte regel getoond. Via **Details**
+bekijk je de volledige opdracht samen met de uitvoer, ook bij commando's zonder
+uitvoer.
+
 Een vraag die door een fout vóór aflevering niet bij de provider aankwam, blijft
 lokaal als **not yet delivered** staan. Bij je volgende bericht gaan die eerdere
 vragen en bijlagen mee, ook na een herstart. Een sessie-ID alleen geldt niet als
