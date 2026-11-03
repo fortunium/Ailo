@@ -6,26 +6,52 @@ Zie [docs/haalbaarheid.md](docs/haalbaarheid.md) voor het onderzoek: wat geverif
 
 ## Vereisten
 
-- Windows 10/11 (macOS en Linux zijn voorbereid, maar nog niet getest)
-- Node.js 22 of nieuwer
+- Windows 10/11; de broncode wordt ook op Linux gebouwd en getest. Desktopintegratie en login zijn op Linux en macOS nog niet op een echte desktop gevalideerd.
+- Node.js 24 of nieuwer, inclusief npm (met nvm: `nvm use`)
 - Minstens één CLI: `npm install -g @openai/codex` en/of [Claude Code](https://code.claude.com/docs/en/setup)
 - Windows-projecten die moderne PowerShell/.NET-functies gebruiken hebben PowerShell 7 nodig. Ailo zoekt ook in de gebruikelijke PowerShell 7-installatiemappen en geeft die alleen aan de eigen processen door.
 
 ## Starten
 
-```powershell
-npm install
-npm run dev        # ontwikkelmodus
-npm run build      # productiebuild in out/
-npm test           # unit-tests (en integratietests als AILO_IT_CLAUDE_HOME is gezet)
+Kloon de uitgebrachte versie van `master` en installeer de vastgelegde dependencies:
+
+```sh
+git clone --branch master https://github.com/fortunium/Ailo.git
+cd Ailo
+npm ci
+npm run dev
 ```
 
-Gegevens staan in `%APPDATA%\Ailo\data` (te overschrijven met `AILO_DATA_DIR`). Een andere CLI kies je met `AILO_CODEX_PATH` of `AILO_CLAUDE_PATH`.
+`npm run dev` bouwt de app en opent het venster. Voeg bij de eerste start je eigen
+AI-account toe via **Accounts** en meld je zelf aan. Er is geen `.env`-bestand of
+API-sleutel nodig om de app te openen. Ailo levert geen abonnement of tegoed mee.
+Installeer een ontbrekende provider-CLI zoals hierboven aangegeven en herstart Ailo.
+
+Voor normaal lokaal gebruik met een productiebuild:
+
+```sh
+npm run release
+```
+
+Dit bouwt de app in `out/` en start die vervolgens. `npm start` doet hetzelfde.
+`npm run build` bouwt zonder een venster te openen; `npm test` draait de standaardtests
+zonder modelaanvragen. Voor ontwikkeling kun je `develop` klonen; zie
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+Gegevens staan buiten de repository in `%APPDATA%\Ailo\data` (te overschrijven met
+`AILO_DATA_DIR`). Iedere gebruiker begint met eigen lokale gegevens; accounts en
+gesprekken van de maker staan niet in de repository of release. Een andere CLI
+kies je met `AILO_CODEX_PATH` of `AILO_CLAUDE_PATH`.
+
+Gebruik op Linux een grafische desktopsessie. Voor versleutelde MCP-credentials
+is een ontgrendelde OS-keyring nodig, zoals GNOME Keyring of KWallet. Git is nodig
+voor automations met een eigen worktree. MCP-servers kunnen extra runtimes vereisen.
 
 ## Pakketten delen (Windows en Linux, x64)
 
 De packagingconfiguratie is voorbereid. Voorlopig ontwikkelen en gebruiken we
 Ailo via `npm run dev`; de Linux-pakketten zijn nog niet gevalideerd.
+De GitHub-release **v0.1.0** bevat de broncode. Start deze met de commando's hierboven.
 
 De pakketten bevatten Electron en de productiecode. Gebruikers installeren hun
 eigen Codex/Claude CLI en melden zich zelf aan. Accountmappen, gesprekken,
