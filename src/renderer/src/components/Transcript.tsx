@@ -258,22 +258,14 @@ export function Transcript({ conversationId, items, live }: { conversationId: st
 
 // ---- terminal view ---------------------------------------------------------
 
-const PREVIEW_LINES = 12;
-
-/** Long output shows the first lines; the rest expands on request. */
-function TermOutput({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
-  const lines = text.replace(/\n$/, '').split('\n');
-  const shown = open ? lines : lines.slice(0, PREVIEW_LINES);
+/** Native disclosure keeps the user's choice while live output is updated. */
+function TermOutput({ text, live }: { text: string; live: boolean }) {
+  const count = text.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').length;
   return (
-    <div className="t-out">
-      {shown.join('\n')}
-      {lines.length > PREVIEW_LINES && (
-        <button className="term-more" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-          {open ? '▲ show less' : `▼ ${lines.length - PREVIEW_LINES} more lines`}
-        </button>
-      )}
-    </div>
+    <details className="term-output">
+      <summary>Output <span className="t-dim">· {count} {count === 1 ? 'line' : 'lines'}{live ? ' · live' : ''}</span></summary>
+      <div className="t-out">{text}</div>
+    </details>
   );
 }
 
@@ -323,7 +315,7 @@ function TermLine({ conversationId, item }: { conversationId: string; item: Chat
           {item.exitCode != null && <div className="t-exit">exit {item.exitCode}</div>}
           {item.status === 'interrupted' && <div className="t-exit">Stopped · no final result</div>}
           {notice && <div className="t-diagnostic">{notice}</div>}
-          {item.output && <TermOutput text={item.output} />}
+          {item.output && <TermOutput text={item.output} live={item.status === 'running'} />}
         </div>
       );
     }

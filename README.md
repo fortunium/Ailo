@@ -89,6 +89,11 @@ worden direct bijgewerkt. Claude toont toolaanroepen al tijdens het opbouwen
 en meldt voortgang en achtergrondtaken wanneer de SDK die doorgeeft. Alleen
 door de provider gepubliceerde samenvattingen worden weergegeven.
 
+Command- en tooloutput is standaard ingeklapt achter **Output**, met het aantal
+regels en een live-indicator. Klik om alle uitvoer te bekijken en klik opnieuw
+om in te klappen. De gekozen stand blijft behouden tijdens live updates. Status,
+exitcode en waarschuwingen blijven zichtbaar naast de ingeklapte uitvoer.
+
 Een vraag die door een fout vóór aflevering niet bij de provider aankwam, blijft
 lokaal als **not yet delivered** staan. Bij je volgende bericht gaan die eerdere
 vragen en bijlagen mee, ook na een herstart. Een sessie-ID alleen geldt niet als

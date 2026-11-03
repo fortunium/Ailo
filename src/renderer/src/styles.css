@@ -463,3 +463,8 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .t-diagnostic { font-size: 11px; padding: 3px 0 3px 20px; }
 .t-interrupted .t-mark, .t-exit { opacity: .65; }
 .t-exit { font-size: 11px; padding-left: 20px; }
+.term-output { margin: 3px 0 5px 20px; font-size: 12px; }
+.term-output > summary { cursor: pointer; color: var(--term-dim); width: fit-content; border-radius: 3px; }
+.term-output > summary:hover { color: var(--accent); }
+.term-output > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.term-output > .t-out { max-height: 28rem; overflow: auto; margin-top: 6px; }
