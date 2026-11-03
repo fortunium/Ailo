@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ApprovalDecision, ChatItem } from '../../../shared/types';
 import { commandOutputNotice } from '../../../shared/command-diagnostics';
 import { api } from '../api';
@@ -107,29 +107,51 @@ function DiffCard({ item }: { item: Extract<ChatItem, { kind: 'diff' }> }) {
 /** Allow / Allow for session / Deny. Deny gets focus so a stray Enter never approves. */
 function ApprovalActions({ conversationId, item, terminal }: { conversationId: string; item: Extract<ChatItem, { kind: 'approval' }>; terminal?: boolean }) {
   const denyRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => denyRef.current?.focus(), []);
-  const decide = (d: ApprovalDecision) => void api.respondApproval(conversationId, item.id, d);
+  const root = useRef<HTMLDivElement>(null);
+  const inFlight = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const singleKeyApproval = !!terminal && !item.request.defaultToNo;
   const cls = terminal ? 'term-btn' : 'btn';
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (!terminal || e.ctrlKey || e.altKey || e.metaKey) return;
-    const k = e.key.toLowerCase();
-    if (k === 'y') decide('approve');
-    else if (k === 'a' && item.request.allowSession) decide('approve_session');
-    else if (k === 'n') decide('deny');
+  const decide = async (decision: ApprovalDecision) => {
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true); setError(undefined);
+    try { await api.respondApproval(conversationId, item.id, decision); }
+    catch (e) { inFlight.current = false; setBusy(false); setError((e as Error).message); }
   };
+  useEffect(() => {
+    const first = () => document.querySelector('[data-approval-actions="pending"]') === root.current;
+    const modalOpen = () => !!document.querySelector('[role="dialog"], [role="alertdialog"], dialog[open]');
+    const editable = (target: EventTarget | null) => target instanceof Element && !!target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');
+    const active = document.activeElement;
+    const hasDraft = editable(active) && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement ? !!active.value : !!active?.textContent);
+    if (first() && !hasDraft && !modalOpen()) denyRef.current?.focus();
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!terminal || !first() || modalOpen() || editable(e.target) || e.defaultPrevented || e.repeat || e.isComposing || e.ctrlKey || e.altKey || e.metaKey) return;
+      const key = e.key.toLowerCase();
+      const decision = key === 'n' ? 'deny' : !singleKeyApproval ? undefined : key === 'y' ? 'approve' : key === 'a' && item.request.allowSession ? 'approve_session' : undefined;
+      if (!decision) return;
+      e.preventDefault(); e.stopPropagation(); void decide(decision);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [conversationId, item.id, item.request.allowSession, singleKeyApproval, terminal]);
   return (
-    <div className="approval-actions" onKeyDown={onKeyDown}>
-      <button className={`${cls} primary`} onClick={() => decide('approve')}>
-        {terminal ? '[y] Allow' : 'Allow'}
+    <div ref={root} data-approval-actions="pending">
+    <div className="approval-actions">
+      <button className={`${cls} primary`} disabled={busy} aria-keyshortcuts={singleKeyApproval ? 'Y' : undefined} onClick={() => void decide('approve')}>
+        {singleKeyApproval ? '[y] Allow' : 'Allow'}
       </button>
       {item.request.allowSession && (
-        <button className={cls} onClick={() => decide('approve_session')}>
-          {terminal ? '[a] Allow for session' : 'Allow for this session'}
+        <button className={cls} disabled={busy} aria-keyshortcuts={singleKeyApproval ? 'A' : undefined} onClick={() => void decide('approve_session')}>
+          {singleKeyApproval ? '[a] Allow for session' : 'Allow for this session'}
         </button>
       )}
-      <button ref={denyRef} className={`${cls} danger`} onClick={() => decide('deny')}>
+      <button ref={denyRef} className={`${cls} danger`} disabled={busy} aria-keyshortcuts={terminal ? 'N' : undefined} onClick={() => void decide('deny')}>
         {terminal ? '[n] Deny' : 'Deny'}
       </button>
+    </div>
+    {error && <p className="approval-error" role="alert">{error}</p>}
     </div>
   );
 }
@@ -138,10 +160,8 @@ function ApprovalCard({ conversationId, item }: { conversationId: string; item: 
   const pending = !item.resolution;
   return (
     <section className={`approval ${pending ? 'pending' : ''}`} aria-label="Permission request">
-      <div className="approval-head">
-        <span aria-hidden="true">🔐</span> {item.request.title}
-      </div>
-      {item.request.detail && <pre className="mono approval-detail">{item.request.detail}</pre>}
+      <div className="approval-head"><span aria-hidden="true">🔐</span> {item.request.title}</div>
+      {item.request.detail && <details className="t-permission-details"><summary>Technical details</summary><pre className="mono approval-detail">{item.request.detail}</pre></details>}
       {item.request.reason && <p className="muted small">{item.request.reason}</p>}
       {pending ? <ApprovalActions conversationId={conversationId} item={item} /> : <p className={`approval-result res-${item.resolution}`}>{APPROVAL_RESULT[item.resolution!]}</p>}
     </section>
@@ -349,16 +369,12 @@ function TermLine({ conversationId, item }: { conversationId: string; item: Chat
         </div>
       );
     case 'approval':
-      return (
-        <div className={`t-approval ${item.resolution ? '' : 'pending'}`} role="group" aria-label="Permission request">
-          <div>
-            <span className="t-ask">?</span> {item.request.title}
-          </div>
-          {item.request.detail && <div className="t-cmd t-indent">{item.request.detail}</div>}
-          {item.request.reason && <div className="t-dim t-indent">{item.request.reason}</div>}
-          {item.resolution ? <div className={`t-indent res-${item.resolution}`}>→ {APPROVAL_RESULT[item.resolution]}</div> : <ApprovalActions conversationId={conversationId} item={item} terminal />}
-        </div>
-      );
+      return <div className={`t-approval ${item.resolution ? '' : 'pending'}`} role="group" aria-label="Permission request">
+        <div><span className="t-ask">?</span> {item.request.title}</div>
+        {item.request.detail && <details className="t-permission-details"><summary>Technical details</summary><div className="t-cmd t-indent">{item.request.detail}</div></details>}
+        {item.request.reason && <div className="t-dim t-indent">{item.request.reason}</div>}
+        {item.resolution ? <div className={`t-indent res-${item.resolution}`}>→ {APPROVAL_RESULT[item.resolution]}</div> : <ApprovalActions conversationId={conversationId} item={item} terminal/>}
+      </div>;
     case 'question':
       return <QuestionCard conversationId={conversationId} item={item} terminal />;
     case 'notice':

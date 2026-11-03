@@ -102,6 +102,16 @@ gestopte acties; tijdens een beurt is ook de huidige actieve actie zichtbaar.
 Klap de groep open om individuele details te bekijken. Antwoorden, wijzigingen,
 vragen en toestemmingsverzoeken blijven rechtstreeks in het gesprek staan.
 
+Bij een toestemmingsverzoek blijft de vraag met de bestaande knoppen zichtbaar;
+alleen de technische opdracht staat ingeklapt. De toetsen `Y`, `A` en `N` werken
+voor het eerste actieve verzoek buiten tekstvelden. Tijdens typen, toetsherhaling
+of een open dialoog worden ze niet als toestemming verwerkt. Een provider kan
+goedkeuren via één toets uitsluiten; de knoppen blijven dan beschikbaar.
+
+Uitgeklapte commandotekst en uitvoer gebruiken de gewone gespreksbalk voor
+verticaal scrollen. Nieuwe tekst volgt automatisch zolang je onderaan blijft;
+omhoog scrollen laat je leespositie intact.
+
 Een vraag die door een fout vóór aflevering niet bij de provider aankwam, blijft
 lokaal als **not yet delivered** staan. Bij je volgende bericht gaan die eerdere
 vragen en bijlagen mee, ook na een herstart. Een sessie-ID alleen geldt niet als

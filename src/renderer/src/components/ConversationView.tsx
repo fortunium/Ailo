@@ -30,6 +30,7 @@ export function ConversationView({ app, conv, onOpenAccounts, renameSignal, onDe
   const pendingConflict = useRef<((approved: boolean) => void) | undefined>(undefined);
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  const scrollMetrics = useRef({ height: 0, viewport: 0 });
   const busy = conv.status === 'running' || conv.status === 'awaiting_input';
 
   useEffect(() => {
@@ -45,8 +46,24 @@ export function ConversationView({ app, conv, onOpenAccounts, renameSignal, onDe
   }, [conv.id, app.conversations]);
   useLayoutEffect(() => {
     const el = scroller.current;
-    if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [items]);
+    const content = el?.firstElementChild;
+    if (!el || !content) return;
+    const observer = new ResizeObserver(() => {
+      const previous = scrollMetrics.current;
+      const wasAtBottom = previous.height - el.scrollTop - previous.viewport < 60;
+      if (stick.current && wasAtBottom) el.scrollTop = el.scrollHeight;
+      else if (!wasAtBottom) stick.current = false;
+      scrollMetrics.current = { height: el.scrollHeight, viewport: el.clientHeight };
+    });
+    let frame: number | undefined;
+    const onToggle = () => {
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => { stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60; });
+    };
+    observer.observe(content); observer.observe(el);
+    el.addEventListener('toggle', onToggle, true);
+    return () => { observer.disconnect(); el.removeEventListener('toggle', onToggle, true); if (frame !== undefined) cancelAnimationFrame(frame); };
+  }, [conv.id, items === undefined, !!items?.length]);
 
   async function send(text: string, attachments: Attachment[]): Promise<boolean> {
     setError(undefined);
@@ -86,7 +103,10 @@ export function ConversationView({ app, conv, onOpenAccounts, renameSignal, onDe
       {!!liveConflicts.length && <div className="banner banner-warn" role="status">Shared working folder: {liveConflicts.map((c) => c.title).join(', ')}. Both conversations can change the same files.</div>}
     </header>
     {showLog && <section className="log-panel" aria-label="Technical log"><pre className="mono small">{(view.logs[conv.id] ?? []).join('\n') || 'No technical messages yet.'}</pre></section>}
-    <div className="transcript term" ref={scroller} onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60; }} aria-live="polite" aria-busy={busy}>
+    <div className="transcript term" ref={scroller} onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60; scrollMetrics.current = { height: el.scrollHeight, viewport: el.clientHeight }; }}
+      onClickCapture={(e) => { if (e.target instanceof Element && e.target.closest('summary')) stick.current = false; }}
+      onKeyDownCapture={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target instanceof Element && e.target.closest('summary')) stick.current = false; }}
+      aria-live="polite" aria-busy={busy}>
       {items === undefined ? <p className="muted center">Loading…</p> : !items.length ? <div className="empty-conv"><p>New conversation with <strong>{account?.alias}</strong> ({account && PROVIDER_LABEL[account.provider]}).</p><p className="muted small">Paste text or images, attach files, and choose your model below.</p></div> : <TerminalTranscript conversationId={conv.id} items={items} live={busy}/>}
     </div>
     {conflicts && <div className="banner banner-warn conflict-ask" role="alertdialog" aria-label="Shared working folder"><div><strong>Another conversation is already working in this folder.</strong><ul>{conflicts.map((c) => <li key={c.conversationId}>{c.title} — {app.accounts.find((a) => a.id === c.accountId)?.alias} ({shortPath(c.folder)})</li>)}</ul><span className="small">Both conversations can change the same files.</span></div><div className="approval-actions"><button className="btn" onClick={() => pendingConflict.current?.(false)} autoFocus>Wait</button><button className="btn primary" onClick={() => pendingConflict.current?.(true)}>Start anyway</button></div></div>}
