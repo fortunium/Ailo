@@ -1,0 +1,13 @@
+**
+!package.json
+!package-lock.json
+!.npmrc
+!electron-builder.json
+!electron.vite.config.ts
+!tsconfig.json
+!vitest.config.ts
+!src/**
+!test/**
+!scripts/**
+!build/**
+!docs/INSTALL.md

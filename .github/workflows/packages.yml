@@ -1,0 +1,43 @@
+name: Build desktop packages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            script: dist:win
+            artifact: Ailo-Windows-x64
+          - os: ubuntu-24.04
+            script: dist:linux
+            artifact: Ailo-Linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run ${{ matrix.script }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - if: runner.os == 'Windows'
+        run: node scripts/smoke-package.mjs dist/win-unpacked/Ailo.exe
+      - if: runner.os == 'Linux'
+        run: AILO_SMOKE_CONTAINER=1 xvfb-run -a node scripts/smoke-package.mjs dist/linux-unpacked/ailo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          if-no-files-found: error
+          path: |
+            dist/Ailo-*.exe
+            dist/Ailo-*.AppImage
+            dist/Ailo-*.tar.gz
+            dist/SHA256SUMS.txt
+            docs/INSTALL.md
