@@ -144,14 +144,17 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .st-idle { color: var(--muted); }
 .st-idle .status-icon { color: var(--ok); }
 .st-running { color: var(--accent); }
-.st-running .status-icon { display: inline-block; position: relative; }
-.st-running .status-icon::after { content: ''; position: absolute; top: 50%; left: 50%; width: .6em; height: .6em; border: 1.5px solid currentColor; border-radius: 50%; opacity: 0; pointer-events: none; animation: status-ripple 1.8s ease-out infinite; }
+.st-running .status-icon { display: inline-flex; align-items: center; justify-content: center; gap: 2px; height: 1em; }
+.busy-dot { flex: none; width: 2.5px; height: 2.5px; border-radius: 50%; background: currentColor; opacity: .3; animation: busy-dots 1.4s ease-in-out infinite; }
+.sidebar .busy-dot { width: 4px; height: 4px; }
+.busy-dot:nth-child(2) { animation-delay: .16s; }
+.busy-dot:nth-child(3) { animation-delay: .32s; }
 .st-await { color: #b7791f; font-weight: 600; }
 [data-theme='dark'] .st-await { color: #f0b84a; }
 .st-error { color: var(--danger); }
 .st-stopped { color: var(--muted); }
-@keyframes status-ripple { from { opacity: .65; transform: translate(-50%, -50%) scale(.4); } to { opacity: 0; transform: translate(-50%, -50%) scale(2.2); } }
-@media (prefers-reduced-motion: reduce) { .st-running .status-icon::after, .steps-pulse.on, .cursor { animation: none !important; } }
+@keyframes busy-dots { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .busy-dot, .steps-pulse.on, .cursor { animation: none !important; } .busy-dot { opacity: .7; } }
 
 /* conversation */
 .conv { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel); }

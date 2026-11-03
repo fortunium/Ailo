@@ -69,7 +69,7 @@ export function StatusDot({ status, withLabel = false }: { status: ConversationS
   return (
     <span className={`status ${s.cls}`} role="status" aria-label={s.label} title={s.label}>
       <span aria-hidden="true" className="status-icon">
-        {s.icon}
+        {status === 'running' ? <><span className="busy-dot"/><span className="busy-dot"/><span className="busy-dot"/></> : s.icon}
       </span>
       {withLabel && <span className="status-label">{s.label}</span>}
     </span>
