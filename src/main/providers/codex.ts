@@ -16,7 +16,7 @@ import { detectCli } from '../cli';
 import { providerEnv } from '../env';
 import { redact, stripAnsi } from '../redact';
 import { JsonRpcPeer } from './jsonrpc';
-import { looksLikeAuthProblem, ProviderError, type LoginHandle, type ProviderAdapter, type RunCallbacks, type RunHandle, type RunOutcome, type RunParams } from './types';
+import { looksLikeAuthProblem, ProviderError, TurnEndedError, type LoginHandle, type ProviderAdapter, type RunCallbacks, type RunHandle, type RunOutcome, type RunParams } from './types';
 
 const KEYRING_ARGS = ['-c', 'cli_auth_credentials_store="keyring"'];
 const now = () => new Date().toISOString();
@@ -47,7 +47,7 @@ interface ActiveTurn {
   items: Map<string, ChatItem>;
 }
 
-class CodexServer {
+export class CodexServer {
   private proc: ChildProcessWithoutNullStreams;
   readonly rpc: JsonRpcPeer;
   readonly ready: Promise<void>;
@@ -225,6 +225,22 @@ class CodexServer {
     }
     return {
       done,
+      send: async (input) => {
+        if (this.turns.get(threadId!) !== turn || turn.abort.signal.aborted || !turn.turnId) throw new TurnEndedError('The turn has finished.');
+        try {
+          await this.rpc.request('turn/steer', {
+            threadId, expectedTurnId: turn.turnId, clientUserMessageId: input.id,
+            input: [
+              { type: 'text', text: attachmentPrompt(input.text, input.attachments), text_elements: [] },
+              ...input.attachments.filter(a => a.kind === 'image').map(a => ({ type: 'localImage', path: a.path }))
+            ]
+          });
+          cb.onInputAccepted?.(input.id);
+        } catch (error) {
+          if ((error as { code?: number }).code === -32602 && /no active turn|turn.*(mismatch|does not match|not found|not active)|no turn.*(running|progress)/i.test((error as Error).message)) throw new TurnEndedError((error as Error).message);
+          throw error;
+        }
+      },
       stop: async () => {
         if (!this.turns.has(threadId!)) return;
         turn.abort.abort();

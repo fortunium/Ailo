@@ -304,6 +304,7 @@ function TermLine({ conversationId, item }: { conversationId: string; item: Chat
           </span>
           {item.text}
           {item.delivery === 'pending' && <span className="t-delivery"> · not yet delivered</span>}
+          {item.delivery === 'queued' && <span className="t-delivery"> · {item.deliveryError ? 'delivery unconfirmed' : 'waiting for provider'}</span>}
           {item.attachments?.map((a) => <div className="attachment-chip" key={a.path} title={`${a.name} · ${Math.ceil(a.size / 1024)} KB`}>[{a.kind}: {a.name}]</div>)}
         </div>
       );

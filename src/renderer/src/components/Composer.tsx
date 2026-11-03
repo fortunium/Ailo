@@ -48,7 +48,7 @@ export function Composer({ conv, alias, disabled, onSend }: {
   }
 
   async function send() {
-    if (busy || disabled || attachmentLock.current || sendLock.current || (!text.trim() && !attachments.length)) return;
+    if (disabled || attachmentLock.current || sendLock.current || (!text.trim() && !attachments.length)) return;
     sendLock.current = true; setSending(true); setError(undefined);
     const submittedText = text;
     const submitted = attachments;
@@ -60,7 +60,7 @@ export function Composer({ conv, alias, disabled, onSend }: {
     } catch (e) { setError((e as Error).message); } finally { sendLock.current = false; setSending(false); if (!document.querySelector('[data-approval-actions="pending"]')) input.current?.focus(); }
   }
 
-  return <footer className={`composer terminal-composer ${dragging ? 'dragging' : ''}`} onKeyDown={(e) => { if (e.key === 'Escape' && busy) { e.preventDefault(); void api.stop(conv.id); } }}
+  return <footer className={`composer terminal-composer ${dragging ? 'dragging' : ''}`} onKeyDown={(e) => { if (e.key === 'Escape' && busy && !e.defaultPrevented) { e.preventDefault(); void api.stop(conv.id); } }}
     onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
     onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false); }}
     onDrop={(e) => { e.preventDefault(); setDragging(false); void addFiles(Array.from(e.dataTransfer.files)); }}>
@@ -72,7 +72,7 @@ export function Composer({ conv, alias, disabled, onSend }: {
     <div className="composer-row">
       <span className="t-prompt composer-prompt" aria-hidden="true">❯</span>
       <textarea ref={input} className="composer-input" rows={1} hidden={collapsed}
-        placeholder={conv.archived ? 'Archived conversation' : `Message ${alias ?? 'account'}…`}
+        placeholder={conv.archived ? 'Archived conversation' : busy ? 'Reply or add instructions…' : `Message ${alias ?? 'account'}…`}
         value={text} disabled={disabled || sending} aria-label="Message"
         onChange={(e) => setText(e.target.value)}
         onPaste={(e) => {
@@ -89,7 +89,8 @@ export function Composer({ conv, alias, disabled, onSend }: {
           else if (e.key === 'Escape' && busy) { e.preventDefault(); void api.stop(conv.id); }
         }}/>
       {collapsed && <span className="spacer"/>}
-      {busy ? <button className="btn danger" onClick={() => void api.stop(conv.id)}>■ Stop</button> : <button className="btn primary" disabled={disabled || sending || uploading || (!text.trim() && !attachments.length)} onClick={() => void send()}>{sending ? 'Sending…' : 'Send'}</button>}
+      <button className="btn primary" title={busy ? 'Send a follow-up to the running task' : undefined} disabled={disabled || sending || uploading || (!text.trim() && !attachments.length)} onClick={() => void send()}>{sending ? 'Sending…' : 'Send'}</button>
+      {busy && <button className="btn danger" onClick={() => void api.stop(conv.id)}>■ Stop</button>}
     </div>
     <div className="composer-hints"><button className="link-btn" disabled={disabled || sending || uploading} onClick={() => void api.pickFiles().then(addFiles).catch((e) => setError(e.message))}>{uploading ? 'Attaching…' : '+ Attach files'}</button>
       <span className="muted small">Paste images or drop files · Enter to send · Shift+Enter for a new line{busy ? ' · Esc to stop' : ''}</span>

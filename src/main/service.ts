@@ -32,7 +32,7 @@ import type {
   StartTurnResult
 } from '../shared/types';
 import type { LoginHandle, ProviderAdapter, RunHandle } from './providers/types';
-import { ProviderError } from './providers/types';
+import { ProviderError, TurnEndedError } from './providers/types';
 import { redact } from './redact';
 import type { Store } from './store';
 import { MAX_ATTACHMENT_BYTES, saveAttachment, validateAttachments } from './attachments';
@@ -61,7 +61,12 @@ interface ActiveRun {
   stopping: boolean;
   /** Pending user prompts by transcript item id. */
   prompts: Map<string, (value: any) => void>;
+  followups: Extract<ChatItem, { kind: 'user' }>[];
+  inputWork: Promise<void>;
+  ending?: boolean;
 }
+
+const newRun = (): ActiveRun => ({ stopping: false, prompts: new Map(), followups: [], inputWork: Promise.resolve() });
 
 export class AiloService {
   private viewedConversationId: string | null = null;
@@ -497,7 +502,8 @@ export class AiloService {
     try { attachments = validateAttachments(this.attachmentFolder(c.id), opts.attachments ?? []); }
     catch (err) { return { ok: false, error: (err as Error).message }; }
     if (!body.trim() && !attachments.length) return { ok: false, error: 'Message is empty' };
-    if (this.runs.has(c.id)) return { ok: false, error: 'This conversation is still running. Wait, or stop the run first.' };
+    const active = this.runs.get(c.id);
+    if (active) return this.sendFollowup(c, active, body, attachments);
     if (c.archived) return { ok: false, error: 'This conversation is archived. Restore it to continue.' };
     const account = this.state.accounts.find((a) => a.id === c.accountId);
     if (!account) return { ok: false, error: 'The account of this conversation no longer exists. Start a new conversation with another account.' };
@@ -508,7 +514,7 @@ export class AiloService {
     const conflicts = this.folderConflicts(c.id);
     if (conflicts.length && !opts.acknowledgeConflicts) return { ok: false, conflicts };
 
-    const run: ActiveRun = { stopping: false, prompts: new Map() };
+    const run = newRun();
     this.runs.set(c.id, run);
     if (c.title === DEFAULT_TITLE) c.title = (body.trim() || attachments[0]?.name || DEFAULT_TITLE).split('\n')[0].slice(0, 60);
     this.item(c.id, { kind: 'user', id: randomUUID(), text: body, attachments, delivery: 'pending', at: now() });
@@ -530,12 +536,38 @@ export class AiloService {
     return { ok: true };
   }
 
+  private sendFollowup(c: Conversation, run: ActiveRun, text: string, attachments: Attachment[]): StartTurnResult {
+    if (run.stopping) return { ok: false, error: 'This task is stopping. Wait until it has stopped.' };
+    if (!run.handle?.send) return { ok: false, error: 'The provider is still starting. Try sending again in a moment.' };
+    const item: Extract<ChatItem, { kind: 'user' }> = { kind: 'user', id: randomUUID(), text, attachments, delivery: 'queued', at: now() };
+    run.followups.push(item);
+    this.item(c.id, item); this.store.flush();
+    run.inputWork = run.inputWork.then(async () => {
+      if (run.stopping || run.ending) return;
+      try { await run.handle!.send!({ id: item.id, text, attachments }); }
+      catch (error) {
+        if (error instanceof TurnEndedError) return; // Delivered as a new turn after this one finishes.
+        item.deliveryError = 'Delivery could not be confirmed. This message is saved for your next turn.';
+        this.item(c.id, item);
+        this.item(c.id, { kind: 'notice', id: randomUUID(), level: 'warning', text: item.deliveryError, at: now() });
+        this.store.flush();
+      }
+    });
+    return { ok: true };
+  }
+
   private async execute(c: Conversation, account: Account, folders: string[], body: string, attachments: Attachment[], run: ActiveRun, pending: Extract<ChatItem, { kind: 'user' }>[]): Promise<void> {
     let accepted = false;
-    const acceptInput = () => {
+    let continuePending = false;
+    const acceptInput = (id?: string) => {
+      if (id) {
+        const item = run.followups.find(item => item.id === id);
+        if (item && item.delivery !== 'sent') { item.delivery = 'sent'; delete item.deliveryError; this.item(c.id, item); this.store.flush(); }
+        return;
+      }
       if (accepted) return;
       accepted = true;
-      for (const item of pending) this.item(c.id, { ...item, delivery: 'sent' });
+      for (const item of pending) this.item(c.id, { ...item, delivery: 'sent', deliveryError: undefined });
       this.store.flush();
     };
     const adapter = this.adapters[account.provider];
@@ -581,11 +613,13 @@ export class AiloService {
       const tools = c.toolSnapshot;
       const credentials = Object.fromEntries(await Promise.all((tools?.connections ?? []).map(async (connection) => [connection.id, await this.connectionCredentials(connection)] as const)));
       secrets = secretValues(credentials);
+      // Follow-up files need the same scoped attachment access as first-turn files.
+      fs.mkdirSync(this.attachmentFolder(c.id), { recursive: true });
       run.handle = await adapter.runTurn({
         account,
         home,
         cwd: folders[0],
-        extraDirs: [...folders.slice(1), ...(attachments.some((a) => a.kind === 'file') ? [this.attachmentFolder(c.id)] : [])],
+        extraDirs: [...folders.slice(1), this.attachmentFolder(c.id)],
         sessionId: c.providerSessionId,
         text: body,
         attachments,
@@ -624,12 +658,18 @@ export class AiloService {
       });
       if (run.stopping) void run.handle.stop();
       const outcome = await run.handle.done;
+      run.ending = true;
+      if (outcome.status === 'completed' && !run.stopping) await run.inputWork;
       this.finishOpenItems(c.id, outcome.status === 'interrupted' || run.stopping && outcome.status !== 'completed' ? 'interrupted' : 'failed');
-      if (outcome.status === 'completed') { acceptInput(); this.setStatus(c, 'idle'); }
+      if (outcome.status === 'completed' && !run.stopping) {
+        acceptInput();
+        continuePending = run.followups.some(item => item.delivery === 'queued' && !item.deliveryError);
+        if (!continuePending) this.setStatus(c, 'idle');
+      }
       else if (outcome.status === 'interrupted' || run.stopping) {
         this.item(c.id, { kind: 'notice', id: randomUUID(), level: 'info', text: 'Run stopped.', at: now() });
         this.setStatus(c, 'interrupted');
-      } else {
+      } else if (outcome.status === 'failed') {
         this.failRun(c, hideSecrets(outcome.message, secrets), outcome.authProblem);
       }
     } catch (err) {
@@ -644,6 +684,12 @@ export class AiloService {
       log('end');
       this.store.flush();
       this.publish();
+      if (continuePending && !run.stopping) {
+        const next = newRun(); this.runs.set(c.id, next);
+        const queued = pendingInput(this.store.transcript(c.id).items, !!c.providerSessionId);
+        const files = [...new Map(queued.flatMap(item => item.attachments ?? []).map(file => [file.path, file])).values()];
+        void this.execute(c, account, folders, inputText(queued), files, next, queued);
+      }
     }
   }
 

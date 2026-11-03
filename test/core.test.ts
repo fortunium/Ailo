@@ -8,7 +8,7 @@ import { Store } from '../src/main/store';
 import { AiloService, foldersOverlap } from '../src/main/service';
 import { claudeUsage } from '../src/main/providers/claude';
 import { codexUsage, displayCommand, mapItem } from '../src/main/providers/codex';
-import type { ProviderAdapter, RunParams } from '../src/main/providers/types';
+import { TurnEndedError, type LiveInput, type ProviderAdapter, type RunParams } from '../src/main/providers/types';
 import type { AccountConnection, MainEvent } from '../src/shared/types';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'ailo-test-'));
@@ -111,6 +111,97 @@ function setup(conn: AccountConnection = { state: 'connected', email: 'a@x', che
 }
 
 describe('AiloService', () => {
+  it.each(['codex', 'claude'] as const)('delivers live follow-ups to the same %s run without resolving a pending approval', async (provider) => {
+    const { svc, runs, codex, claude, store } = setup();
+    const adapter = (provider === 'codex' ? codex : claude).adapter;
+    const original = adapter.runTurn;
+    const received: LiveInput[] = [];
+    adapter.runTurn = async p => ({ ...await original(p), send: async input => { received.push(input); p.cb.onInputAccepted?.(input.id); } });
+    const account = svc.addAccount({ provider, alias: 'Live fixture', color: '#000' });
+    const c = svc.createConversation({ accountId: account.id });
+    try {
+      await svc.sendMessage(c.id, 'Start the fixture');
+      await vi.waitFor(() => expect((svc as any).runs.get(c.id)?.handle?.send).toBeDefined());
+      const permission = runs[0].cb.requestApproval({ title: 'May I change a file?', allowSession: true });
+      const file = svc.attachData(c.id, 'followup.txt', new TextEncoder().encode('Fixture'));
+      expect(await svc.sendMessage(c.id, 'Use the proposed name', { attachments: [file] })).toEqual({ ok: true });
+      expect(await svc.sendMessage(c.id, 'And check the result')).toEqual({ ok: true });
+      await vi.waitFor(() => expect(received).toHaveLength(2));
+      expect(runs).toHaveLength(1);
+      expect(received[0]).toMatchObject({ text: 'Use the proposed name', attachments: [file] });
+      expect(received[1].text).toBe('And check the result');
+      expect(runs[0].extraDirs).toContain(svc.attachmentFolder(c.id));
+      expect(c.status).toBe('awaiting_input');
+      const approval = store.transcript(c.id).items.find(i => i.kind === 'approval')!;
+      expect(approval).not.toHaveProperty('resolution');
+      const users = store.transcript(c.id).items.filter(i => i.kind === 'user');
+      expect(users.slice(1).map(i => i.delivery)).toEqual(['sent', 'sent']);
+      await svc.stop(c.id); expect(await permission).toBe('cancelled');
+    } finally { await svc.dispose(); }
+  });
+
+  it('continues a follow-up as a new turn when the provider finishes just before delivery', async () => {
+    const { svc, runs, codex, store, events } = setup();
+    const original = codex.adapter.runTurn;
+    codex.adapter.runTurn = async p => ({ ...await original(p), send: async () => { throw new TurnEndedError('No active turn'); } });
+    const a = svc.addAccount({ provider: 'codex', alias: 'Race fixture', color: '#000' });
+    const c = svc.createConversation({ accountId: a.id });
+    try {
+      await svc.sendMessage(c.id, 'Start');
+      await vi.waitFor(() => expect((svc as any).runs.get(c.id)?.handle?.send).toBeDefined());
+      expect((await svc.sendMessage(c.id, 'Use this branch')).ok).toBe(true);
+      await (svc as any).runs.get(c.id).inputWork;
+      codex.finish();
+      await vi.waitFor(() => expect(runs).toHaveLength(2));
+      expect(runs[1].text).toBe('Use this branch');
+      expect(runs[1].sessionId).toBe('sess-1');
+      expect(events.filter(e => e.type === 'turn_finished')).toHaveLength(0);
+      codex.finish();
+      await vi.waitFor(() => expect(c.status).toBe('idle'));
+      expect(store.transcript(c.id).items.filter(i => i.kind === 'user')).toHaveLength(2);
+      expect(events.filter(e => e.type === 'turn_finished')).toHaveLength(1);
+    } finally { await svc.dispose(); }
+  });
+
+  it('retains unconfirmed messages for recovery without retrying them automatically', async () => {
+    const { svc, runs, codex, store } = setup();
+    const original = codex.adapter.runTurn;
+    codex.adapter.runTurn = async p => ({ ...await original(p), send: async () => { throw Error('Transport disconnected'); } });
+    const a = svc.addAccount({ provider: 'codex', alias: 'Delivery fixture', color: '#000' });
+    const c = svc.createConversation({ accountId: a.id });
+    try {
+      await svc.sendMessage(c.id, 'Start');
+      await vi.waitFor(() => expect((svc as any).runs.get(c.id)?.handle?.send).toBeDefined());
+      await svc.sendMessage(c.id, 'Keep this follow-up');
+      await (svc as any).runs.get(c.id).inputWork;
+      const users = store.transcript(c.id).items.filter(i => i.kind === 'user');
+      expect(users.at(-1)).toMatchObject({ delivery: 'queued', deliveryError: expect.stringContaining('could not be confirmed') });
+      codex.finish(); await vi.waitFor(() => expect(c.status).toBe('idle'));
+      expect(runs).toHaveLength(1);
+      await svc.sendMessage(c.id, 'Continue');
+      await vi.waitFor(() => expect(runs).toHaveLength(2));
+      expect(runs[1].text).toContain('Keep this follow-up');
+    } finally { await svc.dispose(); }
+  });
+
+  it('stops promptly with an in-flight follow-up and leaves unsent input recoverable', async () => {
+    const { svc, codex, store } = setup();
+    const original = codex.adapter.runTurn;
+    let finishSend!: () => void;
+    codex.adapter.runTurn = async p => ({ ...await original(p), send: () => new Promise<void>(r => { finishSend = r; }) });
+    const a = svc.addAccount({ provider: 'codex', alias: 'Stop input fixture', color: '#000' });
+    const c = svc.createConversation({ accountId: a.id });
+    try {
+      await svc.sendMessage(c.id, 'Start');
+      await vi.waitFor(() => expect((svc as any).runs.get(c.id)?.handle?.send).toBeDefined());
+      await svc.sendMessage(c.id, 'Unconsumed follow-up');
+      await vi.waitFor(() => expect(finishSend).toBeDefined());
+      await svc.stop(c.id);
+      await vi.waitFor(() => expect(c.status).toBe('interrupted'));
+      expect(new Store(store.root).transcript(c.id).items.find(i => i.kind === 'user' && i.text === 'Unconsumed follow-up')).toMatchObject({ delivery: 'queued' });
+    } finally { finishSend?.(); await svc.dispose(); }
+  });
+
   it.each(['codex', 'claude'] as const)('persists unread completions for %s and clears them only when viewed', async (provider) => {
     const { svc, runs, store, events, codex, claude } = setup();
     const a = svc.addAccount({ provider, alias: 'Unread fixture', color: '#000' });

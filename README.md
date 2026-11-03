@@ -102,6 +102,22 @@ De eerste testpakketten zijn niet ondertekend en updates zijn handmatig.
 | F2 | Gesprek hernoemen |
 | Alt+↑ / Alt+↓ | Vorig / volgend gesprek |
 
+## Berichten tijdens een lopende taak
+
+Ook terwijl de assistent bezig is, kun je met **Send** of Enter een tussentijds
+antwoord, een correctie of extra bestanden sturen. **Stop** blijft daarnaast
+beschikbaar. Codex ontvangt dit binnen de actieve taak; Claude ontvangt het via
+dezelfde berichtenstroom en verwerkt het zodra dat mogelijk is. Je hoeft de taak
+hiervoor niet eerst te stoppen.
+
+Een bericht toont **waiting for provider** zolang de ontvangst nog niet bevestigd
+is. Eindigt de taak vlak voor het versturen, dan gaat het bericht automatisch
+als vervolg door in hetzelfde gesprek. Bij een onzekere bezorgfout blijft het
+bericht bewaard met een melding; het wordt niet automatisch opnieuw verstuurd.
+Bij je volgende bericht krijgt de assistent ook de nog niet bevestigde invoer.
+Na Stop blijven nog niet verwerkte berichten herstelbaar. Inhoudelijke
+vraagkaarten en toestemmingsknoppen blijven apart te beantwoorden.
+
 ## Meldingen en ongelezen antwoorden
 
 Wanneer een taak klaar is terwijl je een ander gesprek bekijkt of Ailo op de

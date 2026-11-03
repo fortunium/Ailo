@@ -16,7 +16,8 @@ import { claudeTaskActivity } from './claude-activity';
 import { runtimeInstructions } from './runtime-instructions';
 import { providerEnv } from '../env';
 import { redact, stripAnsi } from '../redact';
-import { looksLikeAuthProblem, ProviderError, type LoginHandle, type ProviderAdapter, type RunHandle, type RunOutcome, type RunParams } from './types';
+import { looksLikeAuthProblem, ProviderError, TurnEndedError, type LiveInput, type LoginHandle, type ProviderAdapter, type RunHandle, type RunOutcome, type RunParams } from './types';
+import { InputQueue } from './input-queue';
 
 const now = () => new Date().toISOString();
 
@@ -202,19 +203,21 @@ export class ClaudeAdapter implements ProviderAdapter {
     const bin = await claudeBin();
     const { cb } = p;
     const abort = new AbortController();
-    let finishInput!: () => void;
-    const inputDone = new Promise<void>((r) => (finishInput = r));
     const inputId = randomUUID();
+    const inputs = new InputQueue<SDKUserMessage>();
+    const pendingResults = new Set<string>([inputId]);
+    let closed = false;
+    const finishInput = () => { closed = true; inputs.close(); };
 
-    async function* input(): AsyncGenerator<SDKUserMessage> {
-      const content: any[] = [{ type: 'text', text: attachmentPrompt(p.text, p.attachments ?? []) || 'Please inspect the attached image.' }];
-      for (const a of p.attachments ?? []) if (a.kind === 'image') {
+    function message(input: LiveInput): SDKUserMessage {
+      const content: any[] = [{ type: 'text', text: attachmentPrompt(input.text, input.attachments) || 'Please inspect the attached image.' }];
+      for (const a of input.attachments) if (a.kind === 'image') {
         const data = fs.readFileSync(a.path);
         content.push({ type: 'image', source: { type: 'base64', media_type: imageMime(data), data: data.toString('base64') } });
       }
-      yield { type: 'user', uuid: inputId, message: { role: 'user', content }, parent_tool_use_id: null } as SDKUserMessage;
-      await inputDone; // keep the stream open so permission prompts can be answered
+      return { type: 'user', uuid: input.id, message: { role: 'user', content }, parent_tool_use_id: null } as SDKUserMessage;
     }
+    inputs.push(message({ id: inputId, text: p.text, attachments: p.attachments ?? [] }));
 
     const canUseTool: CanUseTool = async (toolName, toolInput, opts) => {
       if (p.mode === 'report' && !['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'AskUserQuestion'].includes(toolName)) return { behavior: 'deny', message: 'Report mode only permits reading and searching.' };
@@ -248,7 +251,7 @@ export class ClaudeAdapter implements ProviderAdapter {
     };
 
     const q = query({
-      prompt: input(),
+      prompt: inputs,
       options: {
         cwd: p.cwd,
         additionalDirectories: p.extraDirs,
@@ -302,7 +305,9 @@ export class ClaudeAdapter implements ProviderAdapter {
       try {
         for await (const m of q as AsyncIterable<SDKMessage>) {
           const msg = m as any;
-          if (msg.user_message_uuid === inputId || msg.user_message_uuids?.includes(inputId) || msg.type === 'user' && msg.uuid === inputId) cb.onInputAccepted?.();
+          const consumed: string[] = msg.user_message_uuids ? [...msg.user_message_uuids] : (msg.user_message_uuid ? [msg.user_message_uuid] : []);
+          if (msg.type === 'user' && pendingResults.has(msg.uuid)) consumed.push(msg.uuid);
+          for (const id of consumed) if (pendingResults.has(id)) cb.onInputAccepted?.(id === inputId ? undefined : id);
           switch (msg.type) {
             case 'system':
               {
@@ -404,12 +409,19 @@ export class ClaudeAdapter implements ProviderAdapter {
             case 'result': {
               const modelUsage = msg.modelUsage?.[activeModel ?? ''] ?? Object.values(msg.modelUsage ?? {})[0] as any;
               cb.onContext({ tokens: contextTokens, window: modelUsage?.contextWindow, costUsd: msg.total_cost_usd });
-              finishInput();
               if (stopped) return { status: 'interrupted' };
               const text: string = msg.result ?? (msg.errors ?? []).join('; ');
               if (msg.is_error || msg.subtype !== 'success') {
                 return { status: 'failed', message: redact(text || msg.subtype), authProblem: looksLikeAuthProblem(text) };
               }
+              // Each streamed user message may have its own result. Do not close
+              // the session on the original result while a follow-up is pending.
+              const completed = consumed.length ? consumed : [pendingResults.values().next().value].filter((id): id is string => !!id);
+              for (const id of completed) {
+                if (pendingResults.delete(id)) cb.onInputAccepted?.(id === inputId ? undefined : id);
+              }
+              if (pendingResults.size) break;
+              finishInput();
               return { status: 'completed' };
             }
             default:
@@ -429,15 +441,21 @@ export class ClaudeAdapter implements ProviderAdapter {
 
     return {
       done,
+      send: async (input) => {
+        if (closed || stopped || abort.signal.aborted) throw new TurnEndedError('The turn has finished.');
+        const next = message(input);
+        pendingResults.add(input.id);
+        inputs.push(next);
+      },
       stop: async () => {
         stopped = true;
+        finishInput();
         try {
           await Promise.race([q.interrupt(), new Promise((r) => setTimeout(r, 4000))]);
         } catch {
           /* fall through to abort */
         }
-        finishInput();
-        setTimeout(() => abort.abort(), 3000);
+        abort.abort(); // Also stop SDK-side queued follow-ups from starting after Stop.
       }
     };
   }

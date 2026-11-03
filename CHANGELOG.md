@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Tussentijdse antwoorden, correcties en bijlagen versturen tijdens een lopende
+  Codex- of Claude-taak, met **Send** naast **Stop**.
+- Bezorgstatus en herstel van nog niet verwerkte berichten, ook als een taak
+  vlak voor het versturen eindigt.
+
 ## 0.2.0 - 2026-11-03
 
 - Nieuw Ailo-appicoon voor het venster, de zijbalk, meldingen en pakketbestanden.

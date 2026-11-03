@@ -247,7 +247,7 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 /* composer */
 .composer { border-top: 1px solid var(--border); padding: 10px max(20px, calc((100% - 820px) / 2)) 14px; }
 .composer-row { display: flex; gap: 8px; align-items: flex-end; }
-.composer-input { flex: 1; resize: none; border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: var(--bg); line-height: 1.45; }
+.composer-input { flex: 1; min-width: 0; resize: none; border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: var(--bg); line-height: 1.45; }
 .composer-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
 .composer-error { color: var(--danger); font-size: 13px; margin: 0 0 6px; }
 
