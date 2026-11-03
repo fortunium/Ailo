@@ -96,6 +96,12 @@ achter **Output**, met het aantal regels en een live-indicator. De gekozen stand
 blijft behouden tijdens live updates. Een waarschuwing of fout blijft herkenbaar
 aan het statusicoon.
 
+Opeenvolgende commando's, zoekacties en voortgangsnotities staan samen achter
+één compacte actieregel. De samenvatting telt acties, waarschuwingen, fouten en
+gestopte acties; tijdens een beurt is ook de huidige actieve actie zichtbaar.
+Klap de groep open om individuele details te bekijken. Antwoorden, wijzigingen,
+vragen en toestemmingsverzoeken blijven rechtstreeks in het gesprek staan.
+
 Een vraag die door een fout vóór aflevering niet bij de provider aankwam, blijft
 lokaal als **not yet delivered** staan. Bij je volgende bericht gaan die eerdere
 vragen en bijlagen mee, ook na een herstart. Een sessie-ID alleen geldt niet als

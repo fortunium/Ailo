@@ -372,12 +372,32 @@ function TermLine({ conversationId, item }: { conversationId: string; item: Chat
   }
 }
 
-export function TerminalTranscript({ conversationId, items }: { conversationId: string; items: ChatItem[] }) {
+function TermActions({ conversationId, steps, live }: { conversationId: string; steps: Step[]; live: boolean }) {
+  const actions = steps.filter((step) => step.kind === 'tool');
+  const running = live ? actions.filter((step) => step.status === 'running') : [];
+  const failed = actions.filter((step) => step.status === 'failed').length;
+  const warnings = actions.filter((step) => step.status === 'done' && step.title.startsWith('Command') && commandOutputNotice(step.output)).length;
+  const stopped = actions.filter((step) => step.status === 'interrupted').length;
+  const declined = actions.filter((step) => step.status === 'declined').length;
+  return <details className="term-actions">
+    <summary>
+      <span className="term-actions-label">{actions.length ? `${actions.length} ${actions.length === 1 ? 'action' : 'actions'}` : 'Progress notes'}</span>
+      {!!running.length && <span className="term-actions-running"> · {running.length} running · {running.at(-1)?.title}</span>}
+      {!!failed && <span className="term-actions-failed"> · {failed} failed</span>}
+      {!!warnings && <span className="term-actions-warning"> · {warnings} {warnings === 1 ? 'warning' : 'warnings'}</span>}
+      {!!stopped && <span> · {stopped} stopped</span>}
+      {!!declined && <span> · {declined} declined</span>}
+    </summary>
+    <div className="term-actions-list">{steps.map((step) => <TermLine key={step.id} conversationId={conversationId} item={step}/>)}</div>
+  </details>;
+}
+
+export function TerminalTranscript({ conversationId, items, live = false }: { conversationId: string; items: ChatItem[]; live?: boolean }) {
   return (
     <div className="term-log">
-      {items.map((it) => (
-        <TermLine key={it.id} conversationId={conversationId} item={it} />
-      ))}
+      {group(items).map((block) => block.type === 'steps'
+        ? <TermActions key={block.id} conversationId={conversationId} steps={block.steps} live={live}/>
+        : <TermLine key={block.item.id} conversationId={conversationId} item={block.item}/>) }
     </div>
   );
 }

@@ -474,3 +474,12 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .t-command-disclosure > .term-output-content { margin-left: 20px; }
 .t-command-disclosure .t-exit, .t-command-disclosure .t-diagnostic { padding-left: 0; }
 .t-command-full { margin: 4px 0 8px; }
+.term-actions > summary { cursor: pointer; width: fit-content; max-width: 100%; color: var(--term-dim); font-size: 12px; border-radius: 3px; }
+.term-actions > summary:hover { color: var(--term-fg); }
+.term-actions > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.term-actions-label { font-weight: 500; }
+.term-actions-running { color: var(--accent); }
+.term-actions-failed { color: var(--danger); }
+.term-actions-warning { color: #c68d29; }
+.term-actions-list { border-left: 1px solid var(--border); margin: 6px 0 8px 5px; padding-left: 12px; }
+.term-actions-list > * + * { margin-top: 6px; }
