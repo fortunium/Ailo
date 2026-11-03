@@ -111,6 +111,30 @@ function setup(conn: AccountConnection = { state: 'connected', email: 'a@x', che
 }
 
 describe('AiloService', () => {
+  it('marks unfinished checks as interrupted when the user stops a run', async () => {
+    const { svc, codex, store } = setup();
+    let started!: () => void;
+    const ready = new Promise<void>(r => { started = r; });
+    let finish!: () => void;
+    codex.adapter.runTurn = async p => {
+      p.cb.onItem({ kind: 'tool', id: 'long-check', title: 'Command', subtitle: 'long test', status: 'running', at: '' });
+      p.cb.onItem({ kind: 'diff', id: 'pending-change', files: [], status: 'pending', at: '' });
+      const done = new Promise<import('../src/main/providers/types').RunOutcome>(r => { finish = () => r({ status: 'interrupted' }); });
+      started();
+      return { done, stop: async () => finish() };
+    };
+    const a = svc.addAccount({ provider: 'codex', alias: 'Stop fixture', color: '#000' });
+    const c = svc.createConversation({ accountId: a.id });
+    try {
+      const sent = svc.sendMessage(c.id, 'Run a check', { wait: true });
+      await ready;
+      await svc.stop(c.id);
+      await sent;
+      expect(svc.conversation(c.id).status).toBe('interrupted');
+      expect(store.transcript(c.id).items.find(i => i.id === 'long-check')).toMatchObject({ status: 'interrupted' });
+      expect(store.transcript(c.id).items.find(i => i.id === 'pending-change')).toMatchObject({ status: 'interrupted' });
+    } finally { await svc.dispose(); }
+  });
   it('gebruikt altijd het account van het gesprek, met een eigen map per account', async () => {
     const { svc, runs, folder, store } = setup();
     const a = svc.addAccount({ provider: 'codex', alias: 'OpenAI privé', color: '#0a0' });

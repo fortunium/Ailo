@@ -11,6 +11,25 @@ import type { Account, McpConnection } from '../src/shared/types';
 
 const suite=process.env.AILO_IT_CODEX ? describe : describe.skip;
 suite('Codex native integration configuration (no inference)',()=>{
+ it('renders command output deltas before the command completes', async () => {
+  const home=fs.mkdtempSync(path.join(os.tmpdir(),'ailo-progress-'));
+  const adapter=new CodexAdapter();
+  const account:Account={id:randomUUID(),alias:'Progress fixture',provider:'codex',createdAt:'',color:'#000',connection:{state:'unknown'}};
+  try {
+   const server=await (adapter as any).server(account,home,'fixture');
+   const items:any[]=[];
+   server.turns.set('fixture',{output:new Map(),items:new Map(),cb:{onItem:(item:any)=>items.push(item)}});
+   const command={id:'command',type:'commandExecution',command:'echo fixture',status:'inProgress'};
+   server.onNotification('item/started',{threadId:'fixture',item:command});
+   server.onNotification('item/commandExecution/outputDelta',{threadId:'fixture',itemId:'command',delta:'first line\n'});
+   expect(items.at(-1)).toMatchObject({id:'command',status:'running',output:'first line\n'});
+   server.onNotification('item/commandExecution/outputDelta',{threadId:'fixture',itemId:'command',delta:'second line\n'});
+   expect(items.at(-1).output).toBe('first line\nsecond line\n');
+   server.onNotification('item/completed',{threadId:'fixture',item:{...command,status:'completed',aggregatedOutput:'final authoritative output'}});
+   expect(items.at(-1)).toMatchObject({id:'command',status:'done',output:'final authoritative output'});
+   server.turns.delete('fixture');
+  } finally { await adapter.dispose(); }
+ },15000);
  it('isolates two MCP profiles on the same account home and loads a pinned local plugin',async()=>{
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'ailo-native-'));const home=path.join(root,'home');const cwd=path.join(root,'project');fs.mkdirSync(cwd);
   const adapter=new CodexAdapter();const account:Account={id:randomUUID(),alias:'Isolated native fixture',provider:'codex',createdAt:'',color:'#000',connection:{state:'unknown'}};

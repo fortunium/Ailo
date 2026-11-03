@@ -3,6 +3,7 @@
 // account the conversation was created with; there is no fallback.
 
 import fs from 'node:fs';
+import { inputText, pendingInput } from './pending-input';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type {
@@ -497,7 +498,8 @@ export class AiloService {
     const run: ActiveRun = { stopping: false, prompts: new Map() };
     this.runs.set(c.id, run);
     if (c.title === DEFAULT_TITLE) c.title = (body.trim() || attachments[0]?.name || DEFAULT_TITLE).split('\n')[0].slice(0, 60);
-    this.item(c.id, { kind: 'user', id: randomUUID(), text: body, attachments, at: now() });
+    this.item(c.id, { kind: 'user', id: randomUUID(), text: body, attachments, delivery: 'pending', at: now() });
+    this.store.flush();
     if (conflicts.length) {
       this.item(c.id, {
         kind: 'notice',
@@ -508,12 +510,21 @@ export class AiloService {
       });
     }
     this.setStatus(c, 'running');
-    const finished = this.execute(c, account, folders, body, attachments, run);
+    const pending = pendingInput(this.store.transcript(c.id).items, !!c.providerSessionId);
+    const recoveredAttachments = [...new Map(pending.flatMap((m) => m.attachments ?? []).map((a) => [a.path, a])).values()];
+    const finished = this.execute(c, account, folders, inputText(pending), recoveredAttachments, run, pending);
     if (opts.wait) await finished;
     return { ok: true };
   }
 
-  private async execute(c: Conversation, account: Account, folders: string[], body: string, attachments: Attachment[], run: ActiveRun): Promise<void> {
+  private async execute(c: Conversation, account: Account, folders: string[], body: string, attachments: Attachment[], run: ActiveRun, pending: Extract<ChatItem, { kind: 'user' }>[]): Promise<void> {
+    let accepted = false;
+    const acceptInput = () => {
+      if (accepted) return;
+      accepted = true;
+      for (const item of pending) this.item(c.id, { ...item, delivery: 'sent' });
+      this.store.flush();
+    };
     const adapter = this.adapters[account.provider];
     const home = this.store.accountHome(account.id);
     let secrets: string[] = [];
@@ -569,6 +580,7 @@ export class AiloService {
         mode: c.executionMode,
         tools, credentials,
         cb: {
+          onInputAccepted: acceptInput,
           openUrl: this.openUrl,
           onUsage: (usage) => { account.usage = usage; this.publish(); },
           onContext: (context) => { c.context = context; this.publish(); },
@@ -590,18 +602,19 @@ export class AiloService {
       });
       if (run.stopping) void run.handle.stop();
       const outcome = await run.handle.done;
-      this.finishOpenItems(c.id);
-      if (outcome.status === 'completed') this.setStatus(c, 'idle');
-      else if (outcome.status === 'interrupted') {
+      this.finishOpenItems(c.id, outcome.status === 'interrupted' || run.stopping && outcome.status !== 'completed' ? 'interrupted' : 'failed');
+      if (outcome.status === 'completed') { acceptInput(); this.setStatus(c, 'idle'); }
+      else if (outcome.status === 'interrupted' || run.stopping) {
         this.item(c.id, { kind: 'notice', id: randomUUID(), level: 'info', text: 'Run stopped.', at: now() });
         this.setStatus(c, 'interrupted');
       } else {
         this.failRun(c, hideSecrets(outcome.message, secrets), outcome.authProblem);
       }
     } catch (err) {
-      this.finishOpenItems(c.id);
+      this.finishOpenItems(c.id, run.stopping ? 'interrupted' : 'failed');
       const e = err as ProviderError;
-      this.failRun(c, hideSecrets(e.message, secrets), e.authProblem);
+      if (run.stopping) this.setStatus(c, 'interrupted');
+      else this.failRun(c, hideSecrets(e.message, secrets), e.authProblem);
     } finally {
       for (const resolve of run.prompts.values()) resolve(null);
       this.runs.delete(c.id);
@@ -630,12 +643,12 @@ export class AiloService {
   }
 
   /** Close streaming/running items so nothing appears to be in progress after a run ends. */
-  private finishOpenItems(conversationId: string): void {
+  private finishOpenItems(conversationId: string, status: 'failed' | 'interrupted' = 'failed'): void {
     for (const item of this.store.transcript(conversationId).items) {
       let changed = false;
       if (item.kind === 'assistant' && item.streaming) (item.streaming = false), (changed = true);
-      if (item.kind === 'tool' && item.status === 'running') (item.status = 'failed'), (changed = true);
-      if (item.kind === 'diff' && item.status === 'pending') (item.status = 'failed'), (changed = true);
+      if (item.kind === 'tool' && item.status === 'running') (item.status = status), (changed = true);
+      if (item.kind === 'diff' && item.status === 'pending') (item.status = status), (changed = true);
       if (changed) this.emit({ type: 'item', conversationId, item });
     }
   }

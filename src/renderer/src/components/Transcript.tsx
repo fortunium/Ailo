@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ApprovalDecision, ChatItem } from '../../../shared/types';
+import { commandOutputNotice } from '../../../shared/command-diagnostics';
 import { api } from '../api';
 import { DiffText, FileChangeCode, Markdown } from './Markdown';
 
@@ -19,8 +20,8 @@ function group(items: ChatItem[]): Block[] {
   return out;
 }
 
-const TOOL_STATUS: Record<string, string> = { running: 'running', done: 'done', failed: 'failed', declined: 'declined' };
-const DIFF_STATUS = { pending: 'proposed', applied: 'applied', failed: 'failed', declined: 'declined' } as const;
+const TOOL_STATUS: Record<string, string> = { running: 'running', done: 'done', failed: 'failed', declined: 'declined', interrupted: 'stopped' };
+const DIFF_STATUS = { pending: 'proposed', applied: 'applied', failed: 'failed', declined: 'declined', interrupted: 'stopped' } as const;
 const APPROVAL_RESULT = { approved: 'Allowed', approved_session: 'Allowed for this session', denied: 'Denied', cancelled: 'Expired' } as const;
 
 function StepRow({ step }: { step: Step }) {
@@ -106,29 +107,51 @@ function DiffCard({ item }: { item: Extract<ChatItem, { kind: 'diff' }> }) {
 /** Allow / Allow for session / Deny. Deny gets focus so a stray Enter never approves. */
 function ApprovalActions({ conversationId, item, terminal }: { conversationId: string; item: Extract<ChatItem, { kind: 'approval' }>; terminal?: boolean }) {
   const denyRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => denyRef.current?.focus(), []);
-  const decide = (d: ApprovalDecision) => void api.respondApproval(conversationId, item.id, d);
+  const root = useRef<HTMLDivElement>(null);
+  const inFlight = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const singleKeyApproval = !!terminal && !item.request.defaultToNo;
   const cls = terminal ? 'term-btn' : 'btn';
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (!terminal || e.ctrlKey || e.altKey || e.metaKey) return;
-    const k = e.key.toLowerCase();
-    if (k === 'y') decide('approve');
-    else if (k === 'a' && item.request.allowSession) decide('approve_session');
-    else if (k === 'n') decide('deny');
+  const decide = async (decision: ApprovalDecision) => {
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true); setError(undefined);
+    try { await api.respondApproval(conversationId, item.id, decision); }
+    catch (e) { inFlight.current = false; setBusy(false); setError((e as Error).message); }
   };
+  useEffect(() => {
+    const first = () => document.querySelector('[data-approval-actions="pending"]') === root.current;
+    const modalOpen = () => !!document.querySelector('[role="dialog"], [role="alertdialog"], dialog[open]');
+    const editable = (target: EventTarget | null) => target instanceof Element && !!target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');
+    const active = document.activeElement;
+    const hasDraft = editable(active) && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement ? !!active.value : !!active?.textContent);
+    if (first() && !hasDraft && !modalOpen()) denyRef.current?.focus();
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!terminal || !first() || modalOpen() || editable(e.target) || e.defaultPrevented || e.repeat || e.isComposing || e.ctrlKey || e.altKey || e.metaKey) return;
+      const key = e.key.toLowerCase();
+      const decision = key === 'n' ? 'deny' : !singleKeyApproval ? undefined : key === 'y' ? 'approve' : key === 'a' && item.request.allowSession ? 'approve_session' : undefined;
+      if (!decision) return;
+      e.preventDefault(); e.stopPropagation(); void decide(decision);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [conversationId, item.id, item.request.allowSession, singleKeyApproval, terminal]);
   return (
-    <div className="approval-actions" onKeyDown={onKeyDown}>
-      <button className={`${cls} primary`} onClick={() => decide('approve')}>
-        {terminal ? '[y] Allow' : 'Allow'}
+    <div ref={root} data-approval-actions="pending">
+    <div className="approval-actions">
+      <button className={`${cls} primary`} disabled={busy} aria-keyshortcuts={singleKeyApproval ? 'Y' : undefined} onClick={() => void decide('approve')}>
+        {singleKeyApproval ? '[y] Allow' : 'Allow'}
       </button>
       {item.request.allowSession && (
-        <button className={cls} onClick={() => decide('approve_session')}>
-          {terminal ? '[a] Allow for session' : 'Allow for this session'}
+        <button className={cls} disabled={busy} aria-keyshortcuts={singleKeyApproval ? 'A' : undefined} onClick={() => void decide('approve_session')}>
+          {singleKeyApproval ? '[a] Allow for session' : 'Allow for this session'}
         </button>
       )}
-      <button ref={denyRef} className={`${cls} danger`} onClick={() => decide('deny')}>
+      <button ref={denyRef} className={`${cls} danger`} disabled={busy} aria-keyshortcuts={terminal ? 'N' : undefined} onClick={() => void decide('deny')}>
         {terminal ? '[n] Deny' : 'Deny'}
       </button>
+    </div>
+    {error && <p className="approval-error" role="alert">{error}</p>}
     </div>
   );
 }
@@ -137,10 +160,8 @@ function ApprovalCard({ conversationId, item }: { conversationId: string; item: 
   const pending = !item.resolution;
   return (
     <section className={`approval ${pending ? 'pending' : ''}`} aria-label="Permission request">
-      <div className="approval-head">
-        <span aria-hidden="true">🔐</span> {item.request.title}
-      </div>
-      {item.request.detail && <pre className="mono approval-detail">{item.request.detail}</pre>}
+      <div className="approval-head"><span aria-hidden="true">🔐</span> {item.request.title}</div>
+      {item.request.detail && <details className="t-permission-details"><summary>Technical details</summary><pre className="mono approval-detail">{item.request.detail}</pre></details>}
       {item.request.reason && <p className="muted small">{item.request.reason}</p>}
       {pending ? <ApprovalActions conversationId={conversationId} item={item} /> : <p className={`approval-result res-${item.resolution}`}>{APPROVAL_RESULT[item.resolution!]}</p>}
     </section>
@@ -257,26 +278,20 @@ export function Transcript({ conversationId, items, live }: { conversationId: st
 
 // ---- terminal view ---------------------------------------------------------
 
-const PREVIEW_LINES = 12;
-
-/** Long output shows the first lines; the rest expands on request. */
-function TermOutput({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
-  const lines = text.replace(/\n$/, '').split('\n');
-  const shown = open ? lines : lines.slice(0, PREVIEW_LINES);
+/** Native disclosure keeps the user's choice while live output is updated. */
+function TermOutput({ text, live }: { text: string; live: boolean }) {
+  const count = text ? text.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').length : 0;
   return (
-    <div className="t-out">
-      {shown.join('\n')}
-      {lines.length > PREVIEW_LINES && (
-        <button className="term-more" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-          {open ? '▲ show less' : `▼ ${lines.length - PREVIEW_LINES} more lines`}
-        </button>
-      )}
-    </div>
+    <details className="term-output">
+      <summary>Output <span className="t-dim">· {count} {count === 1 ? 'line' : 'lines'}{live ? ' · live' : ''}</span></summary>
+      <div className="term-output-content">
+        {text && <div className="t-out">{text}</div>}
+      </div>
+    </details>
   );
 }
 
-const TOOL_MARK: Record<string, string> = { running: '…', done: '✓', failed: '✗', declined: '⊘' };
+const TOOL_MARK: Record<string, string> = { running: '…', done: '✓', failed: '✗', declined: '⊘', interrupted: '■' };
 
 function TermLine({ conversationId, item }: { conversationId: string; item: ChatItem }) {
   switch (item.kind) {
@@ -287,6 +302,7 @@ function TermLine({ conversationId, item }: { conversationId: string; item: Chat
             ❯{' '}
           </span>
           {item.text}
+          {item.delivery === 'pending' && <span className="t-delivery"> · not yet delivered</span>}
           {item.attachments?.map((a) => <div className="attachment-chip" key={a.path} title={`${a.name} · ${Math.ceil(a.size / 1024)} KB`}>[{a.kind}: {a.name}]</div>)}
         </div>
       );
@@ -306,17 +322,36 @@ function TermLine({ conversationId, item }: { conversationId: string; item: Chat
       );
     case 'tool': {
       const isCommand = item.title.startsWith('Command');
-      return (
-        <div className={`t-tool t-${item.status}`}>
-          <div className="t-tool-head">
-            <span className="t-mark" aria-label={item.status}>
-              {TOOL_MARK[item.status]}
-            </span>{' '}
-            {isCommand ? <span className="t-cmd">$ {item.subtitle}</span> : <>
-                <span className="t-toolname">{item.title}</span> {item.subtitle && <span className="t-dim">{item.subtitle}</span>}
-              </>}
+      const notice = isCommand ? commandOutputNotice(item.output) : undefined;
+      const outputWarning = !!notice && item.status === 'done';
+      if (isCommand) return (
+        <details className={`t-tool t-command-disclosure t-${item.status} ${outputWarning ? 't-output-warning' : ''}`}>
+          <summary className="t-tool-head" title={item.detail ?? item.subtitle}>
+            <span className="t-mark" aria-label={outputWarning ? 'completed; check output' : TOOL_STATUS[item.status]}>{outputWarning ? '⚠' : TOOL_MARK[item.status]}</span>{' '}
+            <span className="t-toolname">{item.title}</span>
+            {item.status === 'interrupted' && <span className="t-dim"> · stopped</span>}
+          </summary>
+          <div className="term-output-content">
+            {item.subtitle && <div className="t-cmd t-command-full">$ {item.subtitle}</div>}
+            {item.exitCode != null && <div className="t-exit">exit {item.exitCode}</div>}
+            {item.status === 'interrupted' && <div className="t-exit">Stopped · no final result</div>}
+            {notice && <div className="t-diagnostic">{notice}</div>}
+            {item.output && <div className="t-out">{item.output}</div>}
           </div>
-          {item.output && <TermOutput text={item.output} />}
+        </details>
+      );
+      return (
+        <div className={`t-tool t-${item.status} ${outputWarning ? 't-output-warning' : ''}`}>
+          <div className="t-tool-head" title={item.detail ?? item.subtitle}>
+            <span className="t-mark" aria-label={outputWarning ? 'completed; check output' : TOOL_STATUS[item.status]}>
+              {outputWarning ? '⚠' : TOOL_MARK[item.status]}
+            </span>{' '}
+            <span className="t-toolname">{item.title}</span> {item.subtitle && <span className="t-dim">{item.subtitle}</span>}
+          </div>
+          {item.exitCode != null && <div className="t-exit">exit {item.exitCode}</div>}
+          {item.status === 'interrupted' && <div className="t-exit">Stopped · no final result</div>}
+          {notice && <div className="t-diagnostic">{notice}</div>}
+          {item.output && <TermOutput text={item.output} live={item.status === 'running'} />}
         </div>
       );
     }
@@ -334,16 +369,12 @@ function TermLine({ conversationId, item }: { conversationId: string; item: Chat
         </div>
       );
     case 'approval':
-      return (
-        <div className={`t-approval ${item.resolution ? '' : 'pending'}`} role="group" aria-label="Permission request">
-          <div>
-            <span className="t-ask">?</span> {item.request.title}
-          </div>
-          {item.request.detail && <div className="t-cmd t-indent">{item.request.detail}</div>}
-          {item.request.reason && <div className="t-dim t-indent">{item.request.reason}</div>}
-          {item.resolution ? <div className={`t-indent res-${item.resolution}`}>→ {APPROVAL_RESULT[item.resolution]}</div> : <ApprovalActions conversationId={conversationId} item={item} terminal />}
-        </div>
-      );
+      return <div className={`t-approval ${item.resolution ? '' : 'pending'}`} role="group" aria-label="Permission request">
+        <div><span className="t-ask">?</span> {item.request.title}</div>
+        {item.request.detail && <details className="t-permission-details"><summary>Technical details</summary><div className="t-cmd t-indent">{item.request.detail}</div></details>}
+        {item.request.reason && <div className="t-dim t-indent">{item.request.reason}</div>}
+        {item.resolution ? <div className={`t-indent res-${item.resolution}`}>→ {APPROVAL_RESULT[item.resolution]}</div> : <ApprovalActions conversationId={conversationId} item={item} terminal/>}
+      </div>;
     case 'question':
       return <QuestionCard conversationId={conversationId} item={item} terminal />;
     case 'notice':
@@ -357,12 +388,32 @@ function TermLine({ conversationId, item }: { conversationId: string; item: Chat
   }
 }
 
-export function TerminalTranscript({ conversationId, items }: { conversationId: string; items: ChatItem[] }) {
+function TermActions({ conversationId, steps, live }: { conversationId: string; steps: Step[]; live: boolean }) {
+  const actions = steps.filter((step) => step.kind === 'tool');
+  const running = live ? actions.filter((step) => step.status === 'running') : [];
+  const failed = actions.filter((step) => step.status === 'failed').length;
+  const warnings = actions.filter((step) => step.status === 'done' && step.title.startsWith('Command') && commandOutputNotice(step.output)).length;
+  const stopped = actions.filter((step) => step.status === 'interrupted').length;
+  const declined = actions.filter((step) => step.status === 'declined').length;
+  return <details className="term-actions">
+    <summary>
+      <span className="term-actions-label">{actions.length ? `${actions.length} ${actions.length === 1 ? 'action' : 'actions'}` : 'Progress notes'}</span>
+      {!!running.length && <span className="term-actions-running"> · {running.length} running · {running.at(-1)?.title}</span>}
+      {!!failed && <span className="term-actions-failed"> · {failed} failed</span>}
+      {!!warnings && <span className="term-actions-warning"> · {warnings} {warnings === 1 ? 'warning' : 'warnings'}</span>}
+      {!!stopped && <span> · {stopped} stopped</span>}
+      {!!declined && <span> · {declined} declined</span>}
+    </summary>
+    <div className="term-actions-list">{steps.map((step) => <TermLine key={step.id} conversationId={conversationId} item={step}/>)}</div>
+  </details>;
+}
+
+export function TerminalTranscript({ conversationId, items, live = false }: { conversationId: string; items: ChatItem[]; live?: boolean }) {
   return (
     <div className="term-log">
-      {items.map((it) => (
-        <TermLine key={it.id} conversationId={conversationId} item={it} />
-      ))}
+      {group(items).map((block) => block.type === 'steps'
+        ? <TermActions key={block.id} conversationId={conversationId} steps={block.steps} live={live}/>
+        : <TermLine key={block.item.id} conversationId={conversationId} item={block.item}/>) }
     </div>
   );
 }

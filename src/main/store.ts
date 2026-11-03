@@ -128,7 +128,8 @@ export class Store {
       const t = this.transcript(c.id);
       for (const item of t.items) {
         if (item.kind === 'assistant' && item.streaming) item.streaming = false;
-        if (item.kind === 'tool' && item.status === 'running') item.status = 'failed';
+        if (item.kind === 'tool' && item.status === 'running') item.status = 'interrupted';
+        if (item.kind === 'diff' && item.status === 'pending') item.status = 'interrupted';
         if (item.kind === 'approval' && !item.resolution) item.resolution = 'cancelled';
         if (item.kind === 'question' && !item.resolution) item.resolution = 'cancelled';
       }

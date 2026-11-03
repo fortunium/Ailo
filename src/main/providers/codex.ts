@@ -11,6 +11,7 @@ import { attachmentPrompt } from '../attachments';
 import { codexMcpConfig, connectionName } from '../integrations';
 import { codexPluginId, installCodexPlugins } from './codex-plugins';
 import { handleElicitation } from './elicitation';
+import { runtimeInstructions } from './runtime-instructions';
 import { detectCli } from '../cli';
 import { providerEnv } from '../env';
 import { redact, stripAnsi } from '../redact';
@@ -43,6 +44,7 @@ interface ActiveTurn {
   finish(outcome: RunOutcome): void;
   /** Accumulated command output per item id. */
   output: Map<string, string>;
+  items: Map<string, ChatItem>;
 }
 
 class CodexServer {
@@ -165,7 +167,7 @@ class CodexServer {
       if (p.mode !== 'report' && p.tools) Object.assign(config, codexMcpConfig(p.tools, p.credentials ?? {}));
     }
     if (p.mode === 'report') Object.assign(config, { 'features.hooks': false, 'features.apps': false, 'features.computer_use': false, 'features.browser_use': false });
-    const instructions = (p.tools?.skills ?? []).map((s) => `Skill: ${s.name}\n${s.instructions}`).join('\n\n');
+    const instructions = [runtimeInstructions(), ...(p.tools?.skills ?? []).map((s) => `Skill: ${s.name}\n${s.instructions}`)].join('\n\n');
     const threadOpts = {
       cwd: p.cwd,
       approvalPolicy: 'on-request',
@@ -196,6 +198,7 @@ class CodexServer {
       cb,
       abort: new AbortController(),
       output: new Map(),
+      items: new Map(),
       finish: (o) => {
         this.turns.delete(threadId!);
         turn.abort.abort();
@@ -216,6 +219,7 @@ class CodexServer {
         ...(p.tools || p.mode === 'report' ? { disabledPluginIds: pluginIds.filter((id) => !selectedPlugins.has(id)) } : {})
       });
       turn.turnId = r.turn.id;
+      cb.onInputAccepted?.();
     } catch (err) {
       turn.finish({ status: 'failed', message: (err as Error).message, authProblem: looksLikeAuthProblem((err as Error).message) });
     }
@@ -262,20 +266,34 @@ class CodexServer {
         cb.onContext({ tokens: params.tokenUsage?.last?.totalTokens ?? 0, window: params.tokenUsage?.modelContextWindow ?? undefined });
         break;
       case 'turn/started':
+        cb.onInputAccepted?.();
         turn.turnId = params.turn?.id ?? turn.turnId;
         break;
       case 'item/started':
       case 'item/completed': {
         const item = mapItem(params.item, method === 'item/completed', turn);
-        if (item) cb.onItem(item);
+        if (item) { turn.items.set(item.id, item); cb.onItem(item); }
         break;
       }
       case 'item/agentMessage/delta':
         cb.onDelta(params.itemId, params.delta);
         break;
       case 'item/commandExecution/outputDelta':
-        turn.output.set(params.itemId, (turn.output.get(params.itemId) ?? '') + (params.delta ?? ''));
+        turn.output.set(params.itemId, ((turn.output.get(params.itemId) ?? '') + (params.delta ?? '')).slice(-20000));
+        {
+          const item = turn.items.get(params.itemId);
+          if (item?.kind === 'tool' && item.status === 'running') cb.onItem({ ...item, output: redact(turn.output.get(params.itemId) ?? '') });
+        }
         break;
+      case 'item/reasoning/summaryTextDelta':
+      case 'item/plan/delta': {
+        if (!turn.items.has(params.itemId)) {
+          const item: ChatItem = { kind: 'reasoning', id: params.itemId, text: '', at: now() };
+          turn.items.set(item.id, item); cb.onItem(item);
+        }
+        cb.onDelta(params.itemId, params.delta ?? '');
+        break;
+      }
       case 'error':
         if (params.willRetry) cb.onLog(redact(`retrying: ${params.error?.message} ${params.error?.additionalDetails ?? ''}`));
         else cb.onItem({ kind: 'notice', id: randomUUID(), level: 'error', text: params.error?.message ?? 'Unknown error', detail: redact(params.error?.additionalDetails ?? ''), at: now() });
@@ -377,7 +395,7 @@ export function mapItem(item: any, completed: boolean, turn?: Pick<ActiveTurn, '
     case 'agentMessage':
       return { kind: 'assistant', id: item.id, text: item.text ?? '', streaming: !completed, at };
     case 'reasoning': {
-      const text = [...(item.summary ?? []), ...(completed && !item.summary?.length ? item.content ?? [] : [])].join('\n\n').trim();
+      const text = (item.summary ?? []).join('\n\n').trim();
       return completed && text ? { kind: 'reasoning', id: item.id, text, at } : undefined;
     }
     case 'commandExecution':
@@ -389,7 +407,8 @@ export function mapItem(item: any, completed: boolean, turn?: Pick<ActiveTurn, '
         detail: item.cwd ? `${item.command}
 folder: ${item.cwd}${item.exitCode != null ? ` · exit code ${item.exitCode}` : ''}` : undefined,
         output: redact(item.aggregatedOutput ?? turn?.output.get(item.id) ?? ''),
-        status: statusMap[item.status] ?? (completed ? 'done' : 'running'),
+        exitCode: item.exitCode ?? undefined,
+        status: item.status === 'declined' ? 'declined' : item.exitCode != null && item.exitCode !== 0 ? 'failed' : statusMap[item.status] ?? (completed ? 'done' : 'running'),
         at
       };
     case 'fileChange':
@@ -414,6 +433,10 @@ folder: ${item.cwd}${item.exitCode != null ? ` · exit code ${item.exitCode}` : 
       return { kind: 'tool', id: item.id, title: 'Web search', subtitle: item.query ?? item.action?.query, status: completed ? 'done' : 'running', at };
     case 'dynamicToolCall':
       return { kind: 'tool', id: item.id, title: `Tool: ${item.tool}`, detail: JSON.stringify(item.arguments, null, 2), status: statusMap[item.status] ?? 'running', at };
+    case 'collabAgentToolCall':
+      return { kind: 'tool', id: item.id, title: `Agent: ${item.tool ?? 'background task'}`, subtitle: item.prompt, output: item.agentsStates ? JSON.stringify(item.agentsStates, null, 2) : undefined, status: statusMap[item.status] ?? (completed ? 'done' : 'running'), at };
+    case 'contextCompaction':
+      return { kind: 'tool', id: item.id, title: 'Compacting conversation', status: completed ? 'done' : 'running', at };
     case 'plan':
       return completed ? { kind: 'reasoning', id: item.id, text: item.text, at } : undefined;
     default:

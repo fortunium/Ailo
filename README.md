@@ -9,6 +9,7 @@ Zie [docs/haalbaarheid.md](docs/haalbaarheid.md) voor het onderzoek: wat geverif
 - Windows 10/11 (macOS en Linux zijn voorbereid, maar nog niet getest)
 - Node.js 22 of nieuwer
 - Minstens één CLI: `npm install -g @openai/codex` en/of [Claude Code](https://code.claude.com/docs/en/setup)
+- Windows-projecten die moderne PowerShell/.NET-functies gebruiken hebben PowerShell 7 nodig. Ailo zoekt ook in de gebruikelijke PowerShell 7-installatiemappen en geeft die alleen aan de eigen processen door.
 
 ## Starten
 
@@ -81,6 +82,48 @@ Ailo gebruikt uitsluitend de terminalweergave. De invoer ondersteunt meerdere re
 **Delete** verwijdert een gesprek met zijn transcript en bijlagen. Stop een lopend gesprek eerst. Werkbestanden blijven staan, ook in de automatisch gemaakte losse werkmap. Voor Codex verwijdert Ailo ook de providersessie wanneer de CLI dat ondersteunt; bij Claude blijft de eigen CLI-geschiedenis staan. Een melding geeft aan wanneer alleen de Ailo-kopie is verwijderd.
 
 ## Gebruik en modelinstellingen
+
+Tijdens een beurt toont een activiteitenbalk de actieve commando's, tools en
+bestandswijzigingen. Codex-commandoutput en beschikbare voortgangsberichten
+worden direct bijgewerkt. Claude toont toolaanroepen al tijdens het opbouwen
+en meldt voortgang en achtergrondtaken wanneer de SDK die doorgeeft. Alleen
+door de provider gepubliceerde samenvattingen worden weergegeven.
+
+Een commando neemt standaard één uitklapbare regel in met een statusicoon en de
+actienaam. De volledige opdracht, exitcode, meldingen en uitvoer staan binnen het
+uitklapvak, ook bij commando's zonder uitvoer. Andere tooloutput is ingeklapt
+achter **Output**, met het aantal regels en een live-indicator. De gekozen stand
+blijft behouden tijdens live updates. Een waarschuwing of fout blijft herkenbaar
+aan het statusicoon.
+
+Opeenvolgende commando's, zoekacties en voortgangsnotities staan samen achter
+één compacte actieregel. De samenvatting telt acties, waarschuwingen, fouten en
+gestopte acties; tijdens een beurt is ook de huidige actieve actie zichtbaar.
+Klap de groep open om individuele details te bekijken. Antwoorden, wijzigingen,
+vragen en toestemmingsverzoeken blijven rechtstreeks in het gesprek staan.
+
+Bij een toestemmingsverzoek blijft de vraag met de bestaande knoppen zichtbaar;
+alleen de technische opdracht staat ingeklapt. De toetsen `Y`, `A` en `N` werken
+voor het eerste actieve verzoek buiten tekstvelden. Tijdens typen, toetsherhaling
+of een open dialoog worden ze niet als toestemming verwerkt. Een provider kan
+goedkeuren via één toets uitsluiten; de knoppen blijven dan beschikbaar.
+
+Uitgeklapte commandotekst en uitvoer gebruiken de gewone gespreksbalk voor
+verticaal scrollen. Nieuwe tekst volgt automatisch zolang je onderaan blijft;
+omhoog scrollen laat je leespositie intact.
+
+Een vraag die door een fout vóór aflevering niet bij de provider aankwam, blijft
+lokaal als **not yet delivered** staan. Bij je volgende bericht gaan die eerdere
+vragen en bijlagen mee, ook na een herstart. Een sessie-ID alleen geldt niet als
+bewijs dat een vraag is ontvangen. Bekende oudere Codex-pluginstartfouten worden
+ook herkend, zodat de oorspronkelijke vraag alsnog beschikbaar komt.
+
+Gestopte acties tonen **Stopped · no final result**. Bij afgeronde commando's
+is de exitcode zichtbaar wanneer de provider die doorgeeft. Bekende foutmeldingen
+en buildwaarschuwingen in de uitvoer krijgen een aparte melding; een exitcode 0
+is bij gecombineerde PowerShell-opdrachten geen bewijs dat alle deelopdrachten
+zijn geslaagd. Deze herkenning is een aanwijzing om de uitvoer te controleren,
+geen volledige analyse van alle mogelijke toolmeldingen.
 
 Accounts en de gespreksvoet tonen het abonnementsgebruik van het betreffende account, met resetmomenten en het tijdstip van de laatste meting. Ze verversen bij starten, na een beurt, elke minuut zolang ze zichtbaar zijn, en met **Refresh usage**. Ontbrekende cijfers worden als niet beschikbaar getoond. Claude biedt deze gegevens via een experimenteel SDK-endpoint; dat staat bij de meter. Het contextgebruik van het gesprek wordt afzonderlijk getoond na modelaanvragen.
 

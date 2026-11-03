@@ -21,7 +21,7 @@ export function Composer({ conv, alias, disabled, onSend }: {
   const sendLock = useRef(false);
   const busy = conv.status === 'running' || conv.status === 'awaiting_input';
   useEffect(() => { drafts.set(conv.id, { text, attachments }); }, [conv.id, text, attachments]);
-  useEffect(() => { input.current?.focus(); }, []);
+  useEffect(() => { if (!document.querySelector('[data-approval-actions="pending"]')) input.current?.focus(); }, []);
   useEffect(() => {
     const el = input.current;
     if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(230, Math.max(44, el.scrollHeight))}px`; }
@@ -57,7 +57,7 @@ export function Composer({ conv, alias, disabled, onSend }: {
         setText(''); setAttachments([]); setCollapsed(false);
         drafts.delete(conv.id);
       }
-    } catch (e) { setError((e as Error).message); } finally { sendLock.current = false; setSending(false); input.current?.focus(); }
+    } catch (e) { setError((e as Error).message); } finally { sendLock.current = false; setSending(false); if (!document.querySelector('[data-approval-actions="pending"]')) input.current?.focus(); }
   }
 
   return <footer className={`composer terminal-composer ${dragging ? 'dragging' : ''}`} onKeyDown={(e) => { if (e.key === 'Escape' && busy) { e.preventDefault(); void api.stop(conv.id); } }}

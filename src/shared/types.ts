@@ -101,7 +101,7 @@ export interface Attachment {
 
 /** Normalised transcript entries. Provider-specific raw events never reach the UI as chat content. */
 export type ChatItem =
-  | { kind: 'user'; id: string; text: string; attachments?: Attachment[]; at: string }
+  | { kind: 'user'; id: string; text: string; attachments?: Attachment[]; delivery?: 'pending' | 'sent'; at: string }
   | { kind: 'assistant'; id: string; text: string; streaming?: boolean; at: string }
   | { kind: 'reasoning'; id: string; text: string; at: string }
   | {
@@ -112,10 +112,11 @@ export type ChatItem =
       subtitle?: string;
       detail?: string;
       output?: string;
-      status: 'running' | 'done' | 'failed' | 'declined';
+      status: 'running' | 'done' | 'failed' | 'declined' | 'interrupted';
+      exitCode?: number;
       at: string;
     }
-  | { kind: 'diff'; id: string; files: { path: string; change: string; diff: string }[]; status: 'pending' | 'applied' | 'failed' | 'declined'; at: string }
+  | { kind: 'diff'; id: string; files: { path: string; change: string; diff: string }[]; status: 'pending' | 'applied' | 'failed' | 'declined' | 'interrupted'; at: string }
   | { kind: 'approval'; id: string; request: ApprovalRequest; resolution?: 'approved' | 'approved_session' | 'denied' | 'cancelled'; at: string }
   | { kind: 'question'; id: string; questions: Question[]; answers?: Record<string, string>; resolution?: 'answered' | 'cancelled'; at: string }
   | { kind: 'notice'; id: string; level: 'info' | 'warning' | 'error'; text: string; detail?: string; at: string };
