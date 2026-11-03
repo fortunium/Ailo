@@ -1,6 +1,8 @@
 import type { Account, AccountConnection, AccountUsage, ApprovalDecision, ApprovalRequest, Attachment, ChatItem, ConnectionCredentials, ContextUsage, ExecutionMode, LoginProgress, ModelCatalog, ProviderId, Question, RunOptions, ToolSnapshot } from '../../shared/types';
 
 export interface RunCallbacks {
+  /** The provider has accepted this input, independently of session creation. */
+  onInputAccepted?(): void;
   openUrl?(url: string): void;
   /** Provider session/thread id, as soon as it is known. */
   onSession(sessionId: string): void;

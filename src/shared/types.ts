@@ -101,7 +101,7 @@ export interface Attachment {
 
 /** Normalised transcript entries. Provider-specific raw events never reach the UI as chat content. */
 export type ChatItem =
-  | { kind: 'user'; id: string; text: string; attachments?: Attachment[]; at: string }
+  | { kind: 'user'; id: string; text: string; attachments?: Attachment[]; delivery?: 'pending' | 'sent'; at: string }
   | { kind: 'assistant'; id: string; text: string; streaming?: boolean; at: string }
   | { kind: 'reasoning'; id: string; text: string; at: string }
   | {

@@ -9,6 +9,7 @@ Zie [docs/haalbaarheid.md](docs/haalbaarheid.md) voor het onderzoek: wat geverif
 - Windows 10/11 (macOS en Linux zijn voorbereid, maar nog niet getest)
 - Node.js 22 of nieuwer
 - Minstens één CLI: `npm install -g @openai/codex` en/of [Claude Code](https://code.claude.com/docs/en/setup)
+- Windows-projecten die moderne PowerShell/.NET-functies gebruiken hebben PowerShell 7 nodig. Ailo zoekt ook in de gebruikelijke PowerShell 7-installatiemappen en geeft die alleen aan de eigen processen door.
 
 ## Starten
 
@@ -81,6 +82,18 @@ Ailo gebruikt uitsluitend de terminalweergave. De invoer ondersteunt meerdere re
 **Delete** verwijdert een gesprek met zijn transcript en bijlagen. Stop een lopend gesprek eerst. Werkbestanden blijven staan, ook in de automatisch gemaakte losse werkmap. Voor Codex verwijdert Ailo ook de providersessie wanneer de CLI dat ondersteunt; bij Claude blijft de eigen CLI-geschiedenis staan. Een melding geeft aan wanneer alleen de Ailo-kopie is verwijderd.
 
 ## Gebruik en modelinstellingen
+
+Tijdens een beurt toont een activiteitenbalk de actieve commando's, tools en
+bestandswijzigingen. Codex-commandoutput en beschikbare voortgangsberichten
+worden direct bijgewerkt. Claude toont toolaanroepen al tijdens het opbouwen
+en meldt voortgang en achtergrondtaken wanneer de SDK die doorgeeft. Alleen
+door de provider gepubliceerde samenvattingen worden weergegeven.
+
+Een vraag die door een fout vóór aflevering niet bij de provider aankwam, blijft
+lokaal als **not yet delivered** staan. Bij je volgende bericht gaan die eerdere
+vragen en bijlagen mee, ook na een herstart. Een sessie-ID alleen geldt niet als
+bewijs dat een vraag is ontvangen. Bekende oudere Codex-pluginstartfouten worden
+ook herkend, zodat de oorspronkelijke vraag alsnog beschikbaar komt.
 
 Accounts en de gespreksvoet tonen het abonnementsgebruik van het betreffende account, met resetmomenten en het tijdstip van de laatste meting. Ze verversen bij starten, na een beurt, elke minuut zolang ze zichtbaar zijn, en met **Refresh usage**. Ontbrekende cijfers worden als niet beschikbaar getoond. Claude biedt deze gegevens via een experimenteel SDK-endpoint; dat staat bij de meter. Het contextgebruik van het gesprek wordt afzonderlijk getoond na modelaanvragen.
 

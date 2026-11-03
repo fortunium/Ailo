@@ -12,6 +12,7 @@ import { attachmentPrompt, imageMime } from '../attachments';
 import { claudeMcpConfig, connectionName, pluginMcpConfig } from '../integrations';
 import { handleElicitation } from './elicitation';
 import { detectCli } from '../cli';
+import { claudeTaskActivity } from './claude-activity';
 import { providerEnv } from '../env';
 import { redact, stripAnsi } from '../redact';
 import { looksLikeAuthProblem, ProviderError, type LoginHandle, type ProviderAdapter, type RunHandle, type RunOutcome, type RunParams } from './types';
@@ -202,6 +203,7 @@ export class ClaudeAdapter implements ProviderAdapter {
     const abort = new AbortController();
     let finishInput!: () => void;
     const inputDone = new Promise<void>((r) => (finishInput = r));
+    const inputId = randomUUID();
 
     async function* input(): AsyncGenerator<SDKUserMessage> {
       const content: any[] = [{ type: 'text', text: attachmentPrompt(p.text, p.attachments ?? []) || 'Please inspect the attached image.' }];
@@ -209,7 +211,7 @@ export class ClaudeAdapter implements ProviderAdapter {
         const data = fs.readFileSync(a.path);
         content.push({ type: 'image', source: { type: 'base64', media_type: imageMime(data), data: data.toString('base64') } });
       }
-      yield { type: 'user', message: { role: 'user', content }, parent_tool_use_id: null } as SDKUserMessage;
+      yield { type: 'user', uuid: inputId, message: { role: 'user', content }, parent_tool_use_id: null } as SDKUserMessage;
       await inputDone; // keep the stream open so permission prompts can be answered
     }
 
@@ -286,6 +288,7 @@ export class ClaudeAdapter implements ProviderAdapter {
     const expectedEmail = p.account.connection.state === 'connected' ? p.account.connection.email : undefined;
     let stopped = false;
     const toolInputs = new Map<string, { name: string; input: any }>();
+    const finishedTools = new Set<string>();
     let contextTokens = 0;
     let activeModel: string | undefined;
 
@@ -294,11 +297,17 @@ export class ClaudeAdapter implements ProviderAdapter {
       const streaming = new Map<string, string[]>();
       let currentMsg = '';
       let currentItem: string | undefined;
+      const partialTools = new Map<string, { id: string; name: string; json: string }>();
       try {
         for await (const m of q as AsyncIterable<SDKMessage>) {
           const msg = m as any;
+          if (msg.user_message_uuid === inputId || msg.user_message_uuids?.includes(inputId) || msg.type === 'user' && msg.uuid === inputId) cb.onInputAccepted?.();
           switch (msg.type) {
             case 'system':
+              {
+                const activity = claudeTaskActivity(msg);
+                if (activity) cb.onItem(activity);
+              }
               if (msg.subtype === 'init') {
                 activeModel = msg.model;
                 cb.onSession(msg.session_id);
@@ -318,17 +327,37 @@ export class ClaudeAdapter implements ProviderAdapter {
               break;
             case 'stream_event': {
               const ev = msg.event;
-              if (ev.type === 'message_start') currentMsg = ev.message?.id ?? '';
+              const blockKey = `${msg.parent_tool_use_id ?? 'main'}:${ev.index}`;
+              if (ev.type === 'message_start') { cb.onInputAccepted?.(); currentMsg = ev.message?.id ?? ''; }
               else if (ev.type === 'content_block_start' && ev.content_block?.type === 'text') {
                 currentItem = randomUUID();
                 streaming.set(currentMsg, [...(streaming.get(currentMsg) ?? []), currentItem]);
                 cb.onItem({ kind: 'assistant', id: currentItem, text: ev.content_block.text ?? '', streaming: true, at: now() });
               } else if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta' && currentItem) {
                 cb.onDelta(currentItem, ev.delta.text);
-              } else if (ev.type === 'content_block_stop') currentItem = undefined;
+              } else if (ev.type === 'content_block_start' && ev.content_block?.type === 'tool_use') {
+                const block = ev.content_block;
+                partialTools.set(blockKey, { id: block.id, name: block.name, json: '' });
+                toolInputs.set(block.id, { name: block.name, input: block.input ?? {} });
+                cb.onItem({ kind: 'tool', id: block.id, title: TOOL_TITLES[block.name] ?? block.name, status: 'running', at: now() });
+              } else if (ev.type === 'content_block_delta' && ev.delta?.type === 'input_json_delta') {
+                const tool = partialTools.get(blockKey);
+                if (tool) tool.json += ev.delta.partial_json;
+              } else if (ev.type === 'content_block_stop') {
+                currentItem = undefined;
+                const tool = partialTools.get(blockKey);
+                if (tool) {
+                  partialTools.delete(blockKey);
+                  let input = {};
+                  try { input = JSON.parse(tool.json); } catch { /* Final assistant event provides authoritative input. */ }
+                  toolInputs.set(tool.id, { name: tool.name, input });
+                  cb.onItem({ kind: 'tool', id: tool.id, title: TOOL_TITLES[tool.name] ?? tool.name, subtitle: toolSubtitle(input), detail: JSON.stringify(input, null, 2), status: 'running', at: now() });
+                }
+              }
               break;
             }
             case 'assistant': {
+              cb.onInputAccepted?.();
               const u = msg.message?.usage;
               if (u) contextTokens = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.output_tokens ?? 0);
               const id: string = msg.message?.id ?? '';
@@ -352,6 +381,7 @@ export class ClaudeAdapter implements ProviderAdapter {
               if (!Array.isArray(content)) break;
               for (const block of content) {
                 if (block.type !== 'tool_result') continue;
+                finishedTools.add(block.tool_use_id);
                 const t = toolInputs.get(block.tool_use_id);
                 if (!t) continue;
                 const output = redact(resultText(block.content)).slice(0, 20000);
@@ -359,6 +389,12 @@ export class ClaudeAdapter implements ProviderAdapter {
                 if (diff) cb.onItem({ kind: 'diff', id: block.tool_use_id, files: diff, status: block.is_error ? (/denied|declined|rejected/i.test(output) ? 'declined' : 'failed') : 'applied', at: now() });
                 else cb.onItem({ kind: 'tool', id: block.tool_use_id, title: TOOL_TITLES[t.name] ?? t.name, subtitle: toolSubtitle(t.input), detail: JSON.stringify(t.input, null, 2), output, status: block.is_error ? 'failed' : 'done', at: now() });
               }
+              break;
+            }
+            case 'tool_progress': {
+              if (finishedTools.has(msg.tool_use_id)) break;
+              const tool = toolInputs.get(msg.tool_use_id);
+              cb.onItem({ kind: 'tool', id: msg.tool_use_id, title: TOOL_TITLES[msg.tool_name] ?? msg.tool_name, subtitle: tool ? toolSubtitle(tool.input) : undefined, output: `Running for ${Math.floor(msg.elapsed_time_seconds ?? 0)}s`, status: 'running', at: now() });
               break;
             }
             case 'rate_limit_event':

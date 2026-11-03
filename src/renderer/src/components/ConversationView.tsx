@@ -4,6 +4,7 @@ import { PROVIDER_LABEL } from '../../../shared/types';
 import { api } from '../api';
 import { loadTranscript, useView } from '../store';
 import { TerminalTranscript } from './Transcript';
+import { Activity } from './Activity';
 import { AccountBadge, Dialog, shortPath, StatusDot } from './ui';
 import { Composer } from './Composer';
 import { RunControls } from './RunControls';
@@ -90,6 +91,7 @@ export function ConversationView({ app, conv, onOpenAccounts, renameSignal, onDe
     </div>
     {conflicts && <div className="banner banner-warn conflict-ask" role="alertdialog" aria-label="Shared working folder"><div><strong>Another conversation is already working in this folder.</strong><ul>{conflicts.map((c) => <li key={c.conversationId}>{c.title} — {app.accounts.find((a) => a.id === c.accountId)?.alias} ({shortPath(c.folder)})</li>)}</ul><span className="small">Both conversations can change the same files.</span></div><div className="approval-actions"><button className="btn" onClick={() => pendingConflict.current?.(false)} autoFocus>Wait</button><button className="btn primary" onClick={() => pendingConflict.current?.(true)}>Start anyway</button></div></div>}
     {error && <div className="composer-error pad" role="alert">{error}</div>}
+    <Activity items={items ?? []} status={conv.status} startedAt={conv.updatedAt}/>
     <Composer conv={conv} alias={account?.alias} disabled={conv.archived || !account || deleteBusy} onSend={send}/>
     {account && <div className="conversation-info" aria-label="Model and account usage">
       <RunControls conv={conv} busy={busy || deleteBusy} compact/>

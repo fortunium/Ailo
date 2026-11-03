@@ -4,6 +4,7 @@ import { stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import type { MainEvent, ProviderId } from '../shared/types';
 import { detectCli } from './cli';
+import { runtimePath } from './runtime-path';
 import { ClaudeAdapter } from './providers/claude';
 import { CodexAdapter } from './providers/codex';
 import { AiloService } from './service';
@@ -11,6 +12,7 @@ import { Store } from './store';
 import { SecretVault } from './secrets';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+process.env.PATH = runtimePath();
 
 if (process.env.AILO_DATA_DIR) app.setPath('userData', path.resolve(process.env.AILO_DATA_DIR));
 if (!app.requestSingleInstanceLock()) app.quit();

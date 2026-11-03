@@ -451,3 +451,11 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .secret-hidden { -webkit-text-security: disc; }
 .management-head > .btn { flex: none; white-space: nowrap; }
 @container (max-width: 700px) { .task-list > p, .task-list > .side-h { grid-column: 1 / -1; } }
+.live-activity { border-top: 1px solid var(--border); padding: 9px 20px; max-height: 140px; overflow: auto; font-size: 12px; }
+.activity-heading { display: flex; align-items: center; gap: 8px; }
+.activity-time { margin-left: auto; opacity: .65; font-variant-numeric: tabular-nums; }
+.activity-dot { width: 7px; height: 7px; background: #48b987; border-radius: 50%; animation: activity-pulse 1.4s ease-in-out infinite; }
+.activity-action { padding: 4px 0 0 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.activity-action span, .t-delivery { opacity: .65; }
+@keyframes activity-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .activity-dot { animation: none; } }
