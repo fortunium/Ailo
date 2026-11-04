@@ -41,7 +41,7 @@ export class AutomationManager {
     this.service.validateFolders(folders);
     if (input.mode === 'worktree' && folders.length !== 1) throw new Error('Worktree tasks need one Git repository.');
     this.service.snapshotTools(input.tools, this.service.account(input.accountId).provider);
-    if (input.mode === 'report' && (input.tools.connectionIds.length || input.tools.pluginIds.length)) throw new Error('Report mode uses built-in reading tools only. Choose another mode to use MCP connections or plugins.');
+    if (input.mode === 'report' && (input.tools.connectionIds.length || input.tools.pluginIds.length || input.tools.accountMcpNames?.length)) throw new Error('Report mode uses built-in reading tools only. Choose another mode to use MCP connections or plugins.');
     const nextRunAt = nextScheduledRun(input.schedule, clock);
     const definition: Automation = {
       id: previous?.id ?? randomUUID(), name: input.name.trim(), prompt: input.prompt.trim(), accountId: input.accountId,

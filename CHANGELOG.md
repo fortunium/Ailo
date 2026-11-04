@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.0 - 2026-11-04
+
+- Bestaande MCP-verbindingen uit een Codex-account zijn zichtbaar in Integrations
+  en selecteerbaar bij de gesprekstools, met behoud van de bestaande aanmelding.
+- Herstel van `invalid transport` door onjuist gequote MCP-namen in
+  Codex-configuratie-overrides.
+- Tussentijdse antwoorden, correcties en bijlagen versturen tijdens een lopende
+  Codex- of Claude-taak, met **Send** naast **Stop**.
+- Bezorgstatus en herstel van nog niet verwerkte berichten, ook als een taak
+  vlak voor het versturen eindigt.
+
+Dit is een broncoderelease. Start met `npm ci` en `npm run dev`, of gebruik
+`npm run release` voor een productiebuild en lokaal starten. Herstart een
+bestaande Ailo-sessie zodra lopende taken klaar zijn om de wijzigingen in
+het hoofdproces en de preload te activeren.
+
+Selecteer bestaande account-MCP's bij de tools van een nieuw of nog niet gestart
+gesprek. Een al gestart gesprek behoudt zijn gekozen verbindingen.
+
 ## 0.2.0 - 2026-11-03
 
 - Nieuw Ailo-appicoon voor het venster, de zijbalk, meldingen en pakketbestanden.

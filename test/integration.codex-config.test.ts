@@ -8,9 +8,36 @@ import { codexMcpConfig, connectionName, importLocalPlugin } from '../src/main/i
 import { installCodexPlugins, codexPluginId } from '../src/main/providers/codex-plugins';
 import { detectCli } from '../src/main/cli';
 import type { Account, McpConnection } from '../src/shared/types';
+import type { RunCallbacks } from '../src/main/providers/types';
 
 const suite=process.env.AILO_IT_CODEX ? describe : describe.skip;
 suite('Codex native integration configuration (no inference)',()=>{
+ it.each([false, true])('uses an inherited MCP under its original name (selected=%s)', async selected => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ailo-mcp-override-'));
+  const home = path.join(root, 'home'); fs.mkdirSync(home);
+  const originalConfig = `[mcp_servers.datadog]\ncommand = ${JSON.stringify(process.execPath)}\nargs = [${JSON.stringify(path.resolve('test/fixtures/mcp-server.mjs'))}]\n`;
+  fs.writeFileSync(path.join(home, 'config.toml'), originalConfig);
+  const adapter = new CodexAdapter();
+  const account: Account = { id: randomUUID(), alias: 'Native MCP fixture', provider: 'codex', createdAt: '', color: '#000', connection: { state: 'unknown' } };
+  try {
+   const server = await (adapter as any).server(account, home);
+   expect(await adapter.listAccountMcp(account, home)).toEqual([{ name: 'datadog', transport: 'stdio', enabled: true }]);
+   server.ensureSandbox = async () => {};
+   const request = server.rpc.request.bind(server.rpc);
+   server.rpc.request = (method: string, params: any) => method === 'turn/start' ? Promise.resolve({ turn: { id: 'no-inference' } }) : request(method, params);
+   let threadId = '';
+   const cb: RunCallbacks = { onSession: id => { threadId = id; }, onItem() {}, onDelta() {}, onLog() {}, onUsage() {}, onContext() {}, requestApproval: async () => 'deny', requestAnswers: async () => null };
+   await server.startTurn({ account, home, cwd: root, extraDirs: [], text: 'Fixture', attachments: [], options: {}, tools: { connections: [], skills: [], plugins: [], accountMcpNames: selected ? ['datadog'] : [] }, cb });
+   expect(threadId).toBeTruthy();
+   let result = await request('mcpServerStatus/list', { threadId });
+   if (selected) for (let i = 0; i < 50 && !Object.keys(result.data.find((s: any) => s.name === 'datadog')?.tools ?? {}).length; i++) {
+    await new Promise(resolve => setTimeout(resolve, 100)); result = await request('mcpServerStatus/list', { threadId });
+   }
+   expect(result.data.map((s: any) => s.name)).not.toContain('"datadog"');
+   expect(Object.keys(result.data.find((s: any) => s.name === 'datadog')?.tools ?? {}).length > 0).toBe(selected);
+   expect(fs.readFileSync(path.join(home, 'config.toml'), 'utf8')).toBe(originalConfig);
+  } finally { await adapter.dispose(); }
+ }, 15000);
  it('renders command output deltas before the command completes', async () => {
   const home=fs.mkdtempSync(path.join(os.tmpdir(),'ailo-progress-'));
   const adapter=new CodexAdapter();
@@ -47,7 +74,7 @@ suite('Codex native integration configuration (no inference)',()=>{
    const pluginSource=path.join(root,'source');fs.mkdirSync(path.join(pluginSource,'.codex-plugin'),{recursive:true});fs.mkdirSync(path.join(pluginSource,'skills','fixture'),{recursive:true});fs.writeFileSync(path.join(pluginSource,'.codex-plugin','plugin.json'),JSON.stringify({name:'fixture-plugin',version:'1.0.0',description:'Fixture',skills:'./skills/'}));fs.writeFileSync(path.join(pluginSource,'skills','fixture','SKILL.md'),'---\nname: fixture\ndescription: Fixture instructions\n---\nSay fixture.\n');
    const plugin=importLocalPlugin(root,pluginSource);const cli=await detectCli('codex');const ids=await installCodexPlugins(cli.path!,home,[plugin]);expect(ids).toContain(codexPluginId(plugin));
    const third=await (adapter as any).server(account,home,'plugin');
-   const thread=await third.rpc.request('thread/start',{cwd,approvalPolicy:'on-request',sandbox:'read-only',config:{[`plugins.${JSON.stringify(codexPluginId(plugin))}.enabled`]:true}});expect(thread.thread.id).toBeTruthy();
+   const thread=await third.rpc.request('thread/start',{cwd,approvalPolicy:'on-request',sandbox:'read-only',config:{plugins:{[codexPluginId(plugin)]:{enabled:true}}}});expect(thread.thread.id).toBeTruthy();
   } finally{await adapter.dispose();}
  },30000);
 });

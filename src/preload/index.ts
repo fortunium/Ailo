@@ -7,6 +7,7 @@ const call =
     ipcRenderer.invoke(channel, ...args);
 
 const api: AiloApi = {
+  listAccountMcp: call('listAccountMcp') as AiloApi['listAccountMcp'],
   authorizeConnection: call('authorizeConnection') as AiloApi['authorizeConnection'],
   saveConnection: call('saveConnection') as AiloApi['saveConnection'],
   removeConnection: call('removeConnection') as AiloApi['removeConnection'],
