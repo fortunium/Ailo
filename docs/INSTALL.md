@@ -1,12 +1,12 @@
-# Ailo installeren (0.2, testversie)
+# Ailo installeren (0.3, testversie)
 
-Voor **v0.2.0** gebruik je de broncode met `npm ci` en `npm run dev`, of
+Voor **v0.3.0** gebruik je de broncode met `npm ci` en `npm run dev`, of
 `npm run release`. Zie [Starten in de README](../README.md#starten).
 Onderstaande pakketinstructies zijn voorbereid voor toekomstige desktopdownloads.
 
 ## Windows (x64)
 
-Open `Ailo-0.2.0-windows-x64-setup.exe`. Installatie kan voor je eigen gebruiker.
+Open `Ailo-0.3.0-windows-x64-setup.exe`. Installatie kan voor je eigen gebruiker.
 Deze testversie is niet digitaal ondertekend; Windows kan een melding over een
 onbekende uitgever tonen. Download het pakket alleen rechtstreeks van de maker.
 
@@ -15,8 +15,8 @@ onbekende uitgever tonen. Download het pakket alleen rechtstreeks van de maker.
 Gebruik een recente desktopdistributie met glibc, bijvoorbeeld Ubuntu 24.04.
 
 ```sh
-chmod +x Ailo-0.2.0-linux-x64.AppImage
-./Ailo-0.2.0-linux-x64.AppImage
+chmod +x Ailo-0.3.0-linux-x64.AppImage
+./Ailo-0.3.0-linux-x64.AppImage
 ```
 
 AppImage heeft FUSE 2 nodig (Ubuntu 24.04: `sudo apt install libfuse2t64`).
@@ -24,7 +24,7 @@ Als FUSE ontbreekt, gebruik het tar.gz-pakket:
 
 ```sh
 mkdir -p ailo
-tar -xzf Ailo-0.2.0-linux-x64.tar.gz -C ailo
+tar -xzf Ailo-0.3.0-linux-x64.tar.gz -C ailo
 cd ailo
 ./ailo
 ```
