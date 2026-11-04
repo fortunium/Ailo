@@ -1,4 +1,4 @@
-import type { Account, AccountConnection, AccountUsage, ApprovalDecision, ApprovalRequest, Attachment, ChatItem, ConnectionCredentials, ContextUsage, ExecutionMode, LoginProgress, ModelCatalog, ProviderId, Question, RunOptions, ToolSnapshot } from '../../shared/types';
+import type { Account, AccountConnection, AccountMcpServer, AccountUsage, ApprovalDecision, ApprovalRequest, Attachment, ChatItem, ConnectionCredentials, ContextUsage, ExecutionMode, LoginProgress, ModelCatalog, ProviderId, Question, RunOptions, ToolSnapshot } from '../../shared/types';
 
 export interface RunCallbacks {
   /** The provider has accepted this input, independently of session creation. */
@@ -62,6 +62,7 @@ export interface LoginHandle {
 
 export interface ProviderAdapter {
   readonly id: ProviderId;
+  listAccountMcp?(account: Account, home: string): Promise<AccountMcpServer[]>;
   /** Prepare a fresh account directory (provider-specific config). */
   initHome(home: string): void;
   checkAccount(account: Account, home: string): Promise<AccountConnection>;

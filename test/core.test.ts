@@ -111,6 +111,21 @@ function setup(conn: AccountConnection = { state: 'connected', email: 'a@x', che
 }
 
 describe('AiloService', () => {
+  it('discovers native MCPs using only the chosen account home and keeps report/provider restrictions', async () => {
+    const { svc, codex, store } = setup();
+    const list = vi.fn().mockResolvedValue([{ name: 'datadog', transport: 'http', enabled: true }]);
+    codex.adapter.listAccountMcp = list;
+    const a = svc.addAccount({ provider: 'codex', alias: 'MCP account', color: '#000' });
+    try {
+      expect(await svc.listAccountMcp(a.id)).toEqual([{ name: 'datadog', transport: 'http', enabled: true }]);
+      expect(list).toHaveBeenCalledExactlyOnceWith(a, store.accountHome(a.id));
+      const c = svc.createConversation({ accountId: a.id, tools: { connectionIds: [], skillIds: [], pluginIds: [], accountMcpNames: ['datadog'] } });
+      expect(c.toolSnapshot?.accountMcpNames).toEqual(['datadog']);
+      c.executionMode = 'report';
+      expect(() => svc.setConversationTools(c.id, { connectionIds: [], skillIds: [], pluginIds: [], accountMcpNames: ['datadog'] })).toThrow('Report mode');
+      expect(() => svc.snapshotTools({ connectionIds: [], skillIds: [], pluginIds: [], accountMcpNames: ['datadog'] }, 'claude')).toThrow('only available for Codex');
+    } finally { await svc.dispose(); }
+  });
   it.each(['codex', 'claude'] as const)('delivers live follow-ups to the same %s run without resolving a pending approval', async (provider) => {
     const { svc, runs, codex, claude, store } = setup();
     const adapter = (provider === 'codex' ? codex : claude).adapter;

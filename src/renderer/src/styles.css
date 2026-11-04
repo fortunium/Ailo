@@ -460,6 +460,10 @@ kbd { font-size: 11px; opacity: 0.7; border: 1px solid currentColor; border-radi
 .form-columns > .field { flex: 1 1 120px; min-width: 0; }
 .tool-picker fieldset, .schedule-fields { border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; min-width: 0; }
 .tool-picker fieldset { margin: 10px 0; }
+.account-mcp { border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; min-width: 0; margin: 10px 0; }
+.account-mcp legend { font-size: 12px; color: var(--muted); padding: 0 5px; }
+.account-mcp > label { display: flex; gap: 8px; align-items: flex-start; margin: 7px 0; font-size: 13px; }
+.account-mcp small { display: block; margin-top: 2px; font-size: 11px; }
 .tool-picker legend, .schedule-fields legend { font-size: 12px; color: var(--muted); padding: 0 5px; }
 .tool-picker fieldset > label { display: flex; gap: 8px; align-items: flex-start; margin: 7px 0; font-size: 13px; }
 .tool-picker fieldset > label input { margin-top: 4px; }

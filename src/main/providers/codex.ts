@@ -6,7 +6,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import type { Account, AccountConnection, AccountUsage, ApprovalDecision, ChatItem, LoginProgress, ModelCatalog, Question } from '../../shared/types';
+import type { Account, AccountConnection, AccountMcpServer, AccountUsage, ApprovalDecision, ChatItem, LoginProgress, ModelCatalog, Question } from '../../shared/types';
 import { attachmentPrompt } from '../attachments';
 import { codexMcpConfig, connectionName } from '../integrations';
 import { codexPluginId, installCodexPlugins } from './codex-plugins';
@@ -161,9 +161,14 @@ export class CodexServer {
     if (p.tools || p.mode === 'report') {
       config['features.plugins'] = selectedPlugins.size > 0;
       const effective = await this.rpc.request('config/read', { includeLayers: false, cwd: p.cwd });
-      const selectedConnections = new Set(p.mode === 'report' ? [] : p.tools?.connections.map((c) => connectionName(c.id)));
-      for (const name of Object.keys(effective.config?.mcp_servers ?? {})) config[`mcp_servers.${JSON.stringify(name)}.enabled`] = selectedConnections.has(name);
-      for (const id of new Set([...pluginIds, ...Object.keys(effective.config?.plugins ?? {})])) config[`plugins.${JSON.stringify(id)}.enabled`] = selectedPlugins.has(id);
+      const accountMcp = p.mode === 'report' ? [] : p.tools?.accountMcpNames ?? [];
+      const inherited = effective.config?.mcp_servers ?? {};
+      for (const name of accountMcp) if (!Object.hasOwn(inherited, name)) throw new ProviderError(`Selected account MCP server "${name}" is no longer configured for this account.`);
+      const selectedConnections = new Set(p.mode === 'report' ? [] : [...(p.tools?.connections.map((c) => connectionName(c.id)) ?? []), ...accountMcp]);
+      // RPC override paths split on dots; TOML quotes become literal characters.
+      // Nested maps preserve exact names and the transport fields of disabled servers.
+      config.mcp_servers = configValues(Object.fromEntries(Object.entries(inherited).map(([name, server]) => [name, { ...server as object, enabled: selectedConnections.has(name) }])));
+      config.plugins = configValues(Object.fromEntries([...new Set([...pluginIds, ...Object.keys(effective.config?.plugins ?? {})])].map(id => [id, { ...effective.config?.plugins?.[id], enabled: selectedPlugins.has(id) }])));
       if (p.mode !== 'report' && p.tools) Object.assign(config, codexMcpConfig(p.tools, p.credentials ?? {}));
     }
     if (p.mode === 'report') Object.assign(config, { 'features.hooks': false, 'features.apps': false, 'features.computer_use': false, 'features.browser_use': false });
@@ -385,6 +390,13 @@ export class CodexServer {
   }
 }
 
+/** config/read includes null defaults; TOML overrides cannot represent null. */
+function configValues(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(configValues);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([, v]) => v != null).map(([k, v]) => [k, configValues(v)]));
+  return value;
+}
+
 function stripNulls(o: Record<string, unknown> | null | undefined): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(o ?? {})) if (v !== null && v !== undefined) out[k] = v;
@@ -462,6 +474,14 @@ folder: ${item.cwd}${item.exitCode != null ? ` · exit code ${item.exitCode}` : 
 
 export class CodexAdapter implements ProviderAdapter {
   readonly id = 'codex' as const;
+  async listAccountMcp(account: Account, home: string): Promise<AccountMcpServer[]> {
+    const server = await this.server(account, home);
+    const result = await server.rpc.request('config/read', { includeLayers: false, cwd: home });
+    return Object.entries(result.config?.mcp_servers ?? {}).map(([name, value]) => {
+      const config = value as { command?: string; url?: string; enabled?: boolean };
+      return { name, transport: config.url ? 'http' as const : 'stdio' as const, enabled: config.enabled !== false };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }
   private servers = new Map<string, CodexServer>();
 
   initHome(home: string): void {

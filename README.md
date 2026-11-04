@@ -142,6 +142,22 @@ uit te voeren en meldingen te versturen.
 Het appicoon staat in `build/`; zie [build/README.md](build/README.md) voor de
 bron en het opnieuw genereren van de verschillende formaten.
 
+## MCP uit een bestaand Codex-account
+
+MCP-verbindingen die via Codex zelf zijn ingesteld, verschijnen per account
+onder **Integrations → Codex account MCP**. Je kunt ze bij een nieuw gesprek
+selecteren via **Connections, skills and plugins**, of via **Tools** voordat
+het gesprek voor het eerst start. De oorspronkelijke servernaam, accountmap
+en Codex-aanmelding blijven in gebruik; je hoeft de verbinding niet opnieuw
+in Ailo toe te voegen of OAuth-gegevens te kopiëren. Gebruik **Refresh account
+connections** als je de MCP-configuratie hebt aangepast. Een al gestart gesprek
+behoudt zijn toolselectie; start een nieuw gesprek om andere verbindingen te kiezen.
+
+Deze accountverbindingen staan los van verbindingen die met **Add connection**
+in Ailo worden opgeslagen. Alleen de expliciet geselecteerde verbindingen worden
+ingeschakeld. De accountlijst toont namen en transporttypen; credentials en
+endpoints worden niet naar de interface gekopieerd.
+
 ## Toestemmingen
 
 Naast de modelinstellingen staat **Permissions: Ask / Always allow**. De keuze

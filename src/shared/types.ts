@@ -219,10 +219,12 @@ export interface ConnectionCredentials {
 }
 export type ConnectionInput = Omit<McpConnection, 'id' | 'createdAt' | 'credentialId'> & { id?: string; credentials?: ConnectionCredentials; clearCredentials?: boolean };
 export interface ConnectionTest { ok: boolean; tools: { name: string; description?: string }[]; error?: string; checkedAt: string }
+/** Metadata only; native credentials and configuration stay in the provider account. */
+export interface AccountMcpServer { name: string; transport: 'stdio' | 'http'; enabled: boolean }
 export interface AiloSkill { id: string; name: string; instructions: string; createdAt: string }
 export interface LocalPlugin { id: string; name: string; version: string; description: string; path: string; providers: ProviderId[]; components: string[]; digest: string; createdAt: string }
-export interface ToolSelection { connectionIds: string[]; skillIds: string[]; pluginIds: string[] }
-export interface ToolSnapshot { connections: McpConnection[]; skills: AiloSkill[]; plugins: LocalPlugin[] }
+export interface ToolSelection { connectionIds: string[]; skillIds: string[]; pluginIds: string[]; accountMcpNames?: string[] }
+export interface ToolSnapshot { connections: McpConnection[]; skills: AiloSkill[]; plugins: LocalPlugin[]; accountMcpNames?: string[] }
 export type ExecutionMode = 'workspace' | 'report' | 'worktree';
 export interface AutomationSchedule { frequency: 'manual' | 'daily' | 'weekdays' | 'weekly'; time: string; timeZone: string; weekday: number }
 export interface Automation {
@@ -302,6 +304,7 @@ export interface NewConversationInput {
 
 /** API exposed to the renderer via the preload bridge. */
 export interface AiloApi {
+  listAccountMcp(accountId: string): Promise<AccountMcpServer[]>;
   authorizeConnection(id: string): Promise<void>;
   saveConnection(input: ConnectionInput): Promise<McpConnection>;
   removeConnection(id: string): Promise<void>;

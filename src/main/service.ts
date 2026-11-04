@@ -173,16 +173,24 @@ export class AiloService {
     const connections = take(selection.connectionIds, this.state.connections, 'connection');
     const plugins = take(selection.pluginIds, this.state.plugins, 'plugin');
     if ([...connections, ...plugins].some((i) => !i.providers.includes(provider))) throw new Error('One of the selected integrations does not support this AI provider.');
-    return { connections, skills: take(selection.skillIds, this.state.skills, 'skill'), plugins };
+    const accountMcpNames = [...new Set(selection.accountMcpNames ?? [])];
+    if (accountMcpNames.some(name => typeof name !== 'string' || !name.trim())) throw new Error('Invalid account MCP server name.');
+    if (accountMcpNames.length && provider !== 'codex') throw new Error('Account MCP selection is only available for Codex accounts.');
+    return { connections, skills: take(selection.skillIds, this.state.skills, 'skill'), plugins, ...(accountMcpNames.length ? { accountMcpNames } : {}) };
   }
   setConversationTools(id: string, selection: ToolSelection): void {
     const c = this.conversation(id);
-    if (c.executionMode === 'report' && (selection.connectionIds.length || selection.pluginIds.length)) throw new Error('Report mode cannot enable MCP connections or plugins.');
+    if (c.executionMode === 'report' && (selection.connectionIds.length || selection.pluginIds.length || selection.accountMcpNames?.length)) throw new Error('Report mode cannot enable MCP connections or plugins.');
     if (c.providerSessionId || this.isRunning(id)) throw new Error('Tools are fixed once a conversation starts. Start a new conversation to change them.');
     c.toolSnapshot = this.snapshotTools(selection, this.account(c.accountId).provider); this.publish();
   }
 
   // ---- accounts -----------------------------------------------------------
+
+  async listAccountMcp(id: string) {
+    const account = this.account(id);
+    return this.adapters[account.provider].listAccountMcp?.(account, this.store.accountHome(id)) ?? [];
+  }
 
   account(id: string): Account {
     const a = this.state.accounts.find((x) => x.id === id);

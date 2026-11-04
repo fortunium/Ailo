@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import os from 'node:os';
-import { CodexServer } from '../src/main/providers/codex';
+import { CodexAdapter, CodexServer } from '../src/main/providers/codex';
 import { TurnEndedError, type RunCallbacks, type RunParams } from '../src/main/providers/types';
 
 function fixture() {
@@ -40,4 +40,41 @@ it('only classifies a definite no-active-turn rejection as safe to defer', async
   await expect(run.send!({ id: 'blocked', text: 'Follow-up', attachments: [] })).rejects.not.toBeInstanceOf(TurnEndedError);
   await run.stop();
   await expect(run.send!({ id: 'stopped', text: 'Stop', attachments: [] })).rejects.toBeInstanceOf(TurnEndedError);
+});
+
+it('preserves exact MCP/plugin names and transports while disabling unselected integrations', async () => {
+  const { server, request, params } = fixture();
+  const effective = {
+    mcp_servers: { datadog: { url: 'https://example.invalid/mcp', tool_timeout_sec: null, http_headers: null }, 'team.docs': { command: 'fixture', args: [], enabled: true } },
+    plugins: { 'plugin.with.dots@example': { enabled: true, optional: null } }
+  };
+  request.mockImplementation(async method => {
+    if (method === 'config/read') return { config: effective };
+    if (method === 'thread/start') return { thread: { id: 'thread' } };
+    return { turn: { id: 'turn' } };
+  });
+  params.tools = { connections: [], skills: [], plugins: [], accountMcpNames: ['datadog'] };
+  await server.startTurn(params);
+  const config = request.mock.calls.find(([method]) => method === 'thread/start')![1].config;
+  expect(config.mcp_servers).toEqual({ datadog: { url: 'https://example.invalid/mcp', enabled: true }, 'team.docs': { command: 'fixture', args: [], enabled: false } });
+  expect(config.plugins).toEqual({ 'plugin.with.dots@example': { enabled: false } });
+  expect(Object.keys(config).some(key => key.includes('"'))).toBe(false);
+  expect(effective.mcp_servers.datadog.tool_timeout_sec).toBeNull(); // No mutation of the account config.
+});
+
+it('rejects an account MCP selection that does not exist in that account', async () => {
+  const { server, params } = fixture();
+  params.tools = { connections: [], skills: [], plugins: [], accountMcpNames: ['another-account-server'] };
+  await expect(server.startTurn(params)).rejects.toThrow('no longer configured for this account');
+});
+
+it('returns only native MCP metadata to the UI, without endpoint or credentials', async () => {
+  const adapter = new CodexAdapter();
+  (adapter as any).server = async () => ({ rpc: { request: async () => ({ config: { mcp_servers: {
+    remote: { url: 'https://example.invalid/private', http_headers: { Authorization: 'fixture-private-value' }, enabled: true },
+    local: { command: 'fixture', env: { PRIVATE_VALUE: 'fixture-private-value' }, enabled: false }
+  } } }) } });
+  const result = await adapter.listAccountMcp({} as any, os.tmpdir());
+  expect(result).toEqual([{ name: 'local', transport: 'stdio', enabled: false }, { name: 'remote', transport: 'http', enabled: true }]);
+  expect(JSON.stringify(result)).not.toMatch(/fixture-private-value|private|Authorization|PRIVATE_VALUE/);
 });

@@ -73,7 +73,7 @@ export function NewConversationDialog({ open, onClose, app, projectId, onCreated
             <span className="muted small">The account is fixed for this conversation. {project?.defaultAccountId === accountId && 'This is the project default.'}</span>
           </div>
           {error && <p className="composer-error">{error}</p>}
-          <details><summary>Connections, skills and plugins</summary><ToolPicker app={app} provider={app.accounts.find((a) => a.id === accountId)?.provider} value={tools} onChange={setTools}/></details>
+          <details><summary>Connections, skills and plugins</summary><ToolPicker app={app} accountId={accountId} provider={app.accounts.find((a) => a.id === accountId)?.provider} value={tools} onChange={setTools}/></details>
           <button className="btn primary" disabled={!accountId}>
             Start conversation
           </button>
@@ -154,7 +154,7 @@ export function ProjectDialog({ open, onClose, app, project, onSaved }: { open: 
             ))}
           </select>
         </label>
-        <details><summary>Default tools for new conversations</summary><ToolPicker app={app} provider={app.accounts.find((a) => a.id === def)?.provider} value={tools} onChange={setTools}/></details>
+        <details><summary>Default tools for new conversations</summary><ToolPicker app={app} accountId={def} provider={app.accounts.find((a) => a.id === def)?.provider} value={tools} onChange={setTools}/></details>
         {error && <p className="composer-error">{error}</p>}
         <div className="row">
           <button className="btn primary" disabled={!folders.length}>

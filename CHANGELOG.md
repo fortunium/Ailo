@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Bestaande MCP-verbindingen uit een Codex-account zijn zichtbaar in Integrations
+  en selecteerbaar bij de gesprekstools, met behoud van de bestaande aanmelding.
+- Herstel van `invalid transport` door onjuist gequote MCP-namen in
+  Codex-configuratie-overrides.
 - Tussentijdse antwoorden, correcties en bijlagen versturen tijdens een lopende
   Codex- of Claude-taak, met **Send** naast **Stop**.
 - Bezorgstatus en herstel van nog niet verwerkte berichten, ook als een taak
