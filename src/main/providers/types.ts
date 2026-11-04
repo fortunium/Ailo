@@ -1,8 +1,8 @@
-import type { Account, AccountConnection, AccountUsage, ApprovalDecision, ApprovalRequest, Attachment, ChatItem, ConnectionCredentials, ContextUsage, ExecutionMode, LoginProgress, ModelCatalog, ProviderId, Question, RunOptions, ToolSnapshot } from '../../shared/types';
+import type { Account, AccountConnection, AccountMcpServer, AccountUsage, ApprovalDecision, ApprovalRequest, Attachment, ChatItem, ConnectionCredentials, ContextUsage, ExecutionMode, LoginProgress, ModelCatalog, ProviderId, Question, RunOptions, ToolSnapshot } from '../../shared/types';
 
 export interface RunCallbacks {
   /** The provider has accepted this input, independently of session creation. */
-  onInputAccepted?(): void;
+  onInputAccepted?(inputId?: string): void;
   openUrl?(url: string): void;
   /** Provider session/thread id, as soon as it is known. */
   onSession(sessionId: string): void;
@@ -43,8 +43,16 @@ export interface RunParams {
 
 export interface RunHandle {
   done: Promise<RunOutcome>;
+  /** Submit to the same session. onInputAccepted(id) confirms delivery.
+   * TurnEndedError means no input was accepted and a fresh turn is safe. */
+  send?(input: LiveInput): Promise<void>;
   stop(): Promise<void>;
 }
+
+export interface LiveInput { id: string; text: string; attachments: Attachment[] }
+
+/** Input was definitely rejected because the active turn has already ended. */
+export class TurnEndedError extends Error {}
 
 export interface LoginHandle {
   submitCode(code: string): void;
@@ -54,6 +62,7 @@ export interface LoginHandle {
 
 export interface ProviderAdapter {
   readonly id: ProviderId;
+  listAccountMcp?(account: Account, home: string): Promise<AccountMcpServer[]>;
   /** Prepare a fresh account directory (provider-specific config). */
   initHome(home: string): void;
   checkAccount(account: Account, home: string): Promise<AccountConnection>;

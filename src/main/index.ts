@@ -91,6 +91,7 @@ app.whenReady().then(() => {
   notifications = new CompletionNotifications(service, () => win, icon);
 
   handle('getState', () => service.state);
+  handle('listAccountMcp', id => service.listAccountMcp(id));
   handle('setViewedConversation', (id) => {
     const viewed = win?.isFocused() && !win.isMinimized() ? id : null;
     service.setViewedConversation(viewed);

@@ -11,6 +11,7 @@ import { RunControls } from './RunControls';
 import { ApprovalControls } from './ApprovalControls';
 import { Usage } from './Usage';
 import { emptyTools, ToolPicker } from './ToolPicker';
+import { AccountMcp } from './AccountMcp';
 
 export function ConversationView({ app, conv, onOpenAccounts, renameSignal, onDeleted }: { app: AppState; conv: Conversation; onOpenAccounts: () => void; renameSignal: number; onDeleted: (note?: string) => void }) {
   const view = useView();
@@ -19,7 +20,7 @@ export function ConversationView({ app, conv, onOpenAccounts, renameSignal, onDe
   const folders = project?.folders ?? conv.folders ?? [];
   const items = view.transcripts[conv.id];
   const [showTools, setShowTools] = useState(false);
-  const [tools, setTools] = useState(() => conv.toolSnapshot ? { connectionIds: conv.toolSnapshot.connections.map((c) => c.id), skillIds: conv.toolSnapshot.skills.map((s) => s.id), pluginIds: conv.toolSnapshot.plugins.map((p) => p.id) } : emptyTools());
+  const [tools, setTools] = useState(() => conv.toolSnapshot ? { connectionIds: conv.toolSnapshot.connections.map((c) => c.id), skillIds: conv.toolSnapshot.skills.map((s) => s.id), pluginIds: conv.toolSnapshot.plugins.map((p) => p.id), accountMcpNames: conv.toolSnapshot.accountMcpNames ?? [] } : emptyTools());
   const [error, setError] = useState<string>();
   const [conflicts, setConflicts] = useState<FolderConflict[]>();
   const [showLog, setShowLog] = useState(false);
@@ -95,7 +96,7 @@ export function ConversationView({ app, conv, onOpenAccounts, renameSignal, onDe
         <AccountBadge account={account} size="lg" showProvider/>
         <button className="link-btn muted small working-folder" title={`Open in File Explorer\n${folders.join('\n')}`} aria-label="Open working folder in File Explorer" disabled={!folders.length} onClick={() => void api.openConversationFolder(conv.id).catch((e) => setError(e.message))}>⌁ {project?.name ?? 'Standalone'} · {shortPath(folders[0] ?? '')}{folders.length > 1 && ` +${folders.length - 1}`}</button>
         <span className="spacer"/>
-        <button className="link-btn" onClick={() => setShowTools(true)}>Tools ({(conv.toolSnapshot?.connections.length ?? 0) + (conv.toolSnapshot?.skills.length ?? 0) + (conv.toolSnapshot?.plugins.length ?? 0)})</button>
+        <button className="link-btn" onClick={() => setShowTools(true)}>Tools ({(conv.toolSnapshot?.connections.length ?? 0) + (conv.toolSnapshot?.skills.length ?? 0) + (conv.toolSnapshot?.plugins.length ?? 0) + (conv.toolSnapshot?.accountMcpNames?.length ?? 0)})</button>
         <button className="link-btn" onClick={() => setShowLog((v) => !v)} aria-expanded={showLog}>Technical log</button>
         <button className="link-btn" onClick={() => void api.archiveConversation(conv.id, !conv.archived)} disabled={busy || deleteBusy}>{conv.archived ? 'Restore' : 'Archive'}</button>
         <button className="link-btn danger" onClick={() => setDeleting(true)} disabled={busy || deleteBusy}>Delete</button>
@@ -121,7 +122,7 @@ export function ConversationView({ app, conv, onOpenAccounts, renameSignal, onDe
       {conv.context && <span className="context-usage muted small" title={`Context: ${conv.context.tokens.toLocaleString()}${conv.context.window ? ` / ${conv.context.window.toLocaleString()}` : ''} tokens${conv.context.costUsd != null ? ` · API estimate $${conv.context.costUsd.toFixed(3)} (not a subscription charge)` : ''}`}>Context {conv.context.window ? `${Math.round(100 * conv.context.tokens / conv.context.window)}%` : `${(conv.context.tokens / 1000).toFixed(1)}k`}</span>}
     </div>}
     <Dialog open={showTools} onClose={() => setShowTools(false)} title="Conversation tools" wide>
-      {conv.providerSessionId ? <><p className="muted small">This conversation keeps the tools and versions selected when it started. Start a new conversation to change them.</p><ul>{[...(conv.toolSnapshot?.connections ?? []).map((c) => `${c.name} ? ${c.identity}`), ...(conv.toolSnapshot?.skills ?? []).map((s) => s.name), ...(conv.toolSnapshot?.plugins ?? []).map((p) => `${p.name} ? ${p.version}`)].map((name, i) => <li key={i}>{name}</li>)}</ul></> : <><ToolPicker app={app} provider={account?.provider} value={tools} onChange={setTools} report={conv.executionMode === 'report'}/><button className="btn primary" disabled={busy} onClick={async () => { try { await api.setConversationTools(conv.id, tools); setShowTools(false); } catch (e) { setError((e as Error).message); } }}>Apply tools</button></>}
+      {conv.providerSessionId ? <><p className="muted small">This conversation keeps the tools and versions selected when it started. Start a new conversation to change them.</p><ul>{[...(conv.toolSnapshot?.accountMcpNames ?? []).map(name => `${name} · Codex account`), ...(conv.toolSnapshot?.connections ?? []).map((c) => `${c.name} ? ${c.identity}`), ...(conv.toolSnapshot?.skills ?? []).map((s) => s.name), ...(conv.toolSnapshot?.plugins ?? []).map((p) => `${p.name} ? ${p.version}`)].map((name, i) => <li key={i}>{name}</li>)}</ul>{account?.provider === 'codex' && <AccountMcp accountId={conv.accountId} selected={conv.toolSnapshot?.accountMcpNames}/>}</> : <><ToolPicker app={app} accountId={conv.accountId} provider={account?.provider} value={tools} onChange={setTools} report={conv.executionMode === 'report'}/><button className="btn primary" disabled={busy} onClick={async () => { try { await api.setConversationTools(conv.id, tools); setShowTools(false); } catch (e) { setError((e as Error).message); } }}>Apply tools</button></>}
     </Dialog>
     <Dialog open={deleting} onClose={() => { if (!deleteBusy) setDeleting(false); }} title="Delete conversation?">
       <p>Delete “{conv.title}” and its attachments from Ailo? Working files stay on disk. Ailo also tries to remove the provider session.{account?.provider === 'claude' && ' Claude keeps its own session history.'}</p>
